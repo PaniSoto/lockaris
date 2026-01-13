@@ -10,23 +10,45 @@ export const authOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
-        // PUNTO 3: Normalización (Login insensible a mayúsculas)
         const normalizedEmail = credentials.email.toLowerCase().trim();
 
         const user = await prisma.user.findUnique({
           where: { email: normalizedEmail }
         });
 
-        if (!user) return null; // No damos pistas de si el email existe
+        if (!user) return null;
 
         const passwordMatch = await bcrypt.compare(credentials.password, user.password);
 
         if (!passwordMatch) return null;
 
-        return { id: user.id, email: user.email };
+        // --- RETORNAMOS TODO EL OBJETO PARA EL TOKEN ---
+        return { 
+          id: user.id, 
+          email: user.email, 
+          name: user.name 
+        };
       }
     })
   ],
+  callbacks: {
+    async jwt({ token, user }) {
+      // Si el usuario existe (momento del login), metemos su ID y Name en el JWT
+      if (user) {
+        token.id = user.id;
+        token.name = user.name;
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      // Pasamos los datos del JWT a la sesión de NextAuth
+      if (session.user) {
+        session.user.id = token.id; // <-- ESTO ES LO QUE ARREGLA EL ERROR 500
+        session.user.name = token.name;
+      }
+      return session;
+    }
+  },
   session: {
     strategy: "jwt",
     maxAge: 60 * 60, // 1 hora

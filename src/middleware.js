@@ -1,22 +1,26 @@
+// src/middleware.js
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 export default withAuth(
   function middleware(req) {
-    // Si el usuario está autenticado, permitimos que continúe
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token, // Retorna true si existe un token
+      authorized: ({ token }) => !!token,
     },
     pages: {
-      signIn: "/login", // Si no está autorizado, redirige aquí
+      signIn: "/login",
     },
   }
 );
 
-// Definimos qué rutas protege el muro
 export const config = { 
-  matcher: ["/dashboard/:path*"] 
+  // Aquí agrupamos todas las rutas que requieren sesión
+  matcher: [
+    "/vault/:path*", 
+    "/tools/:path*", 
+    "/settings/:path*"
+  ] 
 };

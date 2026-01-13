@@ -1,74 +1,127 @@
-"use client"
+"use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { User, Mail, Lock, ShieldCheck } from "lucide-react";
 
 export default function RegisterPage() {
-  const [error, setError] = useState(""); // Para el mensaje de error en rojo
-  const [loading, setLoading] = useState(false); // PUNTO 4: Estado de carga
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+  });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(""); // Limpiamos errores anteriores
+    setError("");
 
-    const formData = new FormData(e.currentTarget);
-    const email = formData.get("email");
-    const password = formData.get("password");
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      body: JSON.stringify({ email, password }),
-      headers: { "Content-Type": "application/json" },
-    });
+      const data = await res.json();
 
-    const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Error al registrar");
 
-    if (res.ok) {
+      // Si todo sale bien, lo mandamos al login
       router.push("/login?registered=true");
-    } else {
-      setError(data.message); // PUNTO 1: Guardamos el error del servidor
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gray-100 p-4">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md border-t-4 border-blue-600">
-        <h1 className="text-2xl font-bold mb-6 text-center text-gray-800">Crear Cuenta en Lockaris</h1>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
         
-        {/* PUNTO 1: Mensaje de error visual */}
+        <div className="flex flex-col items-center mb-8">
+          <div className="bg-blue-600 p-3 rounded-xl mb-4 shadow-lg shadow-blue-200">
+            <ShieldCheck className="text-white w-8 h-8" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-800">Crea tu cuenta</h2>
+          <p className="text-slate-500 text-sm">Empieza a proteger tus claves hoy</p>
+        </div>
+
         {error && (
-          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-3 mb-4 text-sm animate-pulse">
+          <div className="bg-red-50 border-l-4 border-red-500 text-red-700 p-3 mb-6 text-sm rounded">
             {error}
           </div>
         )}
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico</label>
-          <input name="email" type="email" required placeholder="ejemplo@correo.com" 
-            className="w-full p-2 border rounded-lg focus:ring-2 text-gray-500 focus:ring-blue-500 outline-none transition" />
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* CAMPO: NOMBRE */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                required
+                placeholder="Tu nombre o alias"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-slate-800"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+          </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña (min. 8 caracteres)</label>
-          <input name="password" type="password" required placeholder="••••••••" 
-            className="w-full p-2 border rounded-lg focus:ring-2 text-gray-500 focus:ring-blue-500 outline-none transition" />
-        </div>
-        
-        {/* PUNTO 4: Botón inteligente con estado de carga */}
-        <button 
-          disabled={loading}
-          className={`w-full p-3 rounded-lg font-bold text-white transition ${loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 shadow-md'}`}
-        >
-          {loading ? "Registrando..." : "Crear Cuenta"}
-        </button>
+          {/* CAMPO: EMAIL */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="email"
+                required
+                placeholder="correo@ejemplo.com"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-slate-800"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </div>
+          </div>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          ¿Ya tienes cuenta? <Link href="/login" className="text-blue-600 font-bold hover:underline">Inicia sesión</Link>
+          {/* CAMPO: PASSWORD */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Contraseña Maestra</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-slate-800"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow-lg shadow-blue-100 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Creando cuenta..." : "Registrarse"}
+          </button>
+        </form>
+
+        <p className="mt-8 text-center text-sm text-slate-600">
+          ¿Ya tienes cuenta?{" "}
+          <Link href="/login" className="text-blue-600 font-semibold hover:underline">
+            Inicia sesión
+          </Link>
         </p>
-      </form>
+      </div>
     </div>
   );
 }

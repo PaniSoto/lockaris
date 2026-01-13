@@ -8,6 +8,7 @@ datasource db {
 
 model User {
   id          String       @id @default(uuid())
+  name        String?
   email       String       @unique
   password    String
   createdAt   DateTime     @default(now())
@@ -15,11 +16,15 @@ model User {
 }
 
 model Credential {
-  id                String @id @default(uuid())
+  id                String   @id @default(uuid())
   serviceName       String
   username          String
   encryptedPassword String
   iv                String
+  url               String?  // Campo para la dirección web (opcional)
+  notes             String?  // Campo para anotaciones (opcional)
+  createdAt         DateTime @default(now()) // Fecha de creación
+  updatedAt         DateTime @updatedAt      // Se actualiza sola al editar
   userId            String
-  user              User   @relation(fields: [userId], references: [id])
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

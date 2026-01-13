@@ -29,7 +29,7 @@ export default function LoginPage() {
       setError("Credenciales incorrectas");
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      router.push("/vault");
     }
   };
 

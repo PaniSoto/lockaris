@@ -1,5 +1,5 @@
 import { Providers } from "@/components/Providers";
-import Navbar from "@/components/Navbar";
+
 import "./globals.css";
 
 export default function RootLayout({ children }) {
@@ -8,7 +8,7 @@ export default function RootLayout({ children }) {
       <body>
         {/* Envolvemos todo con el Provider */}
         <Providers>
-          <Navbar />
+          
           <main>{children}</main>
         </Providers>
       </body>
