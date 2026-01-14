@@ -1,4 +1,4 @@
-"use client" // Es obligatorio que sea un Client Component
+"use client";
 import { SessionProvider } from "next-auth/react";
 
 export function Providers({ children }) {

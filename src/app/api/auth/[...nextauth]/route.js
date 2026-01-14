@@ -13,27 +13,29 @@ export const authOptions = {
         const normalizedEmail = credentials.email.toLowerCase().trim();
 
         const user = await prisma.user.findUnique({
-          where: { email: normalizedEmail }
+          where: { email: normalizedEmail },
         });
 
         if (!user) return null;
 
-        const passwordMatch = await bcrypt.compare(credentials.password, user.password);
+        const passwordMatch = await bcrypt.compare(
+          credentials.password,
+          user.password
+        );
 
         if (!passwordMatch) return null;
 
-        // --- RETORNAMOS TODO EL OBJETO PARA EL TOKEN ---
-        return { 
-          id: user.id, 
-          email: user.email, 
-          name: user.name 
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
         };
-      }
-    })
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // Si el usuario existe (momento del login), metemos su ID y Name en el JWT
+      // Si el usuario existe cuando estas en el login, se mete su ID y Name en el JWT
       if (user) {
         token.id = user.id;
         token.name = user.name;
@@ -41,17 +43,17 @@ export const authOptions = {
       return token;
     },
     async session({ session, token }) {
-      // Pasamos los datos del JWT a la sesión de NextAuth
+      // Se pasan los datos del JWT a la sesión de NextAuth
       if (session.user) {
-        session.user.id = token.id; // <-- ESTO ES LO QUE ARREGLA EL ERROR 500
+        session.user.id = token.id;
         session.user.name = token.name;
       }
       return session;
-    }
+    },
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60, // 1 hora
+    maxAge: 60 * 60,
   },
   pages: {
     signIn: "/login",

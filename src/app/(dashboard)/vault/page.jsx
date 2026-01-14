@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import AddCredentialModal from "@/components/AddCredentialModal";
+import PageHeader from "@/components/PageHeader";
+import { KeySquare } from "lucide-react";
 
 export default function VaultPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function VaultPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-10">
-        <h1 className="text-3xl font-extrabold text-gray-900">Mi Almacén</h1>
+        <PageHeader />
 
         <div className="relative">
           <button 
@@ -72,7 +74,7 @@ export default function VaultPage() {
                 }}
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3"
               >
-                <span className="text-lg">🔑</span> 
+                <KeySquare className="text-yellow-400"/>
                 <span className="font-semibold">Inicio de sesión</span>
               </button>
             </div>
@@ -128,13 +130,13 @@ export default function VaultPage() {
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                       >
-                        ✏️ Editar
+                        Editar
                       </button>
                       <button 
                         onClick={(e) => handleDelete(e, item.id)}
                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
                       >
-                        🗑️ Eliminar
+                        Eliminar
                       </button>
                     </div>
                   )}
@@ -151,7 +153,7 @@ export default function VaultPage() {
 
       <AddCredentialModal 
         isOpen={isModalOpen} 
-        initialData={editingItem} // Pasamos los datos para editar
+        initialData={editingItem}
         onClose={() => {
           setIsModalOpen(false);
           setEditingItem(null);

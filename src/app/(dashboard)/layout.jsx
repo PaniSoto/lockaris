@@ -130,7 +130,7 @@ export default function DashboardLayout({ children }) {
       </aside>
 
       {/* Contenido de la página */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 p-10">
+      <main className="flex-1 overflow-y-auto bg-slate-50 p-5">
         {children}
       </main>
     </div>
