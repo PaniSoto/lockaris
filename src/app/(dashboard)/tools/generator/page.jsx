@@ -129,7 +129,7 @@ export default function GeneratorPage() {
               onClick={generatePassword}
               className="w-full py-5 bg-gray-900 text-white rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg active:scale-[0.98] uppercase tracking-widest text-xs flex items-center justify-center gap-3"
             >
-              <span>🔄</span> Generar Nueva Contraseña
+              Generar Nueva Contraseña
             </button>
 
           </div>

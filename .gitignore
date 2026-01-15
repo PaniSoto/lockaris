@@ -1,6 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# dependencies
+# --- DEPENDENCIAS ---
 /node_modules
 /.pnp
 .pnp.*
@@ -10,34 +10,35 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# --- NEXT.JS & BUILD ---
 /.next/
 /out/
-
-# production
 /build
+.vercel
 
-# misc
-.DS_Store
+# --- SEGURIDAD Y ENTORNO (CRÍTICO) ---
+# Bloqueamos todos los archivos .env para evitar fugas de claves AES y DB_URL
+.env
+.env*.local
+.env.production
 *.pem
+*.key
 
-# debug
+# --- PRISMA ---
+# Ignoramos el schema de SQLite si lo usaste en local, pero no el schema.prisma
+*.db
+*.db-journal
+# Ignoramos la generación específica del cliente si se guarda fuera de node_modules
+/src/generated/prisma
+
+# --- TESTING & LOGS ---
+/coverage
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env
-
-# vercel
-.vercel
-
-# typescript
+# --- MISC ---
+.DS_Store
 *.tsbuildinfo
 next-env.d.ts
-
-/src/generated/prisma
