@@ -2,7 +2,7 @@ import crypto from 'crypto';
 
 const ALGORITHM = 'aes-256-cbc';
 // Leemos la clave hexadecimal que generaste en el .env y la pasamos a Buffer
-const KEY = Buffer.from(process.env.AES_SECRET_KEY, 'hex');
+const KEY = Buffer.from(process.env.ENCRYPTION_KEY, 'hex');
 
 export function encrypt(text) {
     const iv = crypto.randomBytes(16); // Vector de inicialización aleatorio
