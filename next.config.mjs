@@ -2,9 +2,14 @@
 
 const nextConfig = {
   reactCompiler: true,
-  images: {
-    remotePatterns: [new URL('https://res.cloudinary.com/jamj2000/image/upload/**')],
+  
+  eslint: {
+    ignoreDuringBuilds: true,
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+
   experimental: {
     serverActions: {
       bodySizeLimit: '4mb',

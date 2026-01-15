@@ -1,7 +1,7 @@
-// src/middleware.js
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
+// Exportamos la función withAuth directamente como default
 export default withAuth(
   function middleware(req) {
     return NextResponse.next();
@@ -17,7 +17,6 @@ export default withAuth(
 );
 
 export const config = { 
-  // Aquí agrupamos todas las rutas que requieren sesión
   matcher: [
     "/vault/:path*", 
     "/tools/:path*", 
