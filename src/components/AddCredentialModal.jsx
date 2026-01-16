@@ -12,9 +12,8 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
   });
 
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoadingPassword, setIsLoadingPassword] = useState(false);
 
-  // Función que genera contraseñas aleatorias
+  // Generador de contraseñas (sin cambios, funciona perfecto)
   const handleGeneratePassword = () => {
     const length = 16;
     const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
@@ -22,37 +21,27 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
     for (let i = 0; i < length; i++) {
       newPassword += charset.charAt(Math.floor(Math.random() * charset.length));
     }
-    // Se actualiza el estado y forzamos que se vea la contraseña generada
     setFormData({ ...formData, password: newPassword });
     setShowPassword(true); 
   };
 
+  // EFECTO: Sincronización inmediata con initialData
   useEffect(() => {
-    const prepareData = async () => {
+    if (isOpen) {
       setShowPassword(false);
       
-      if (initialData && isOpen) {
-        setIsLoadingPassword(true);
-        try {
-          const res = await fetch(`/api/credentials/${initialData.id}`, { 
-            method: 'POST',
-            cache: 'no-store' 
-          });
-          const data = await res.json();
-
-          setFormData({
-            serviceName: initialData.serviceName || "",
-            username: initialData.username || "",
-            password: data.password || "",
-            url: initialData.url || "",
-            notes: initialData.notes || ""
-          });
-        } catch (error) {
-          console.error("Error al cargar contraseña:", error);
-        } finally {
-          setIsLoadingPassword(false);
-        }
+      if (initialData) {
+        // MODO EDICIÓN: Cargamos los datos directamente desde initialData
+        // Ya no necesitamos hacer un fetch extra porque la API de la tabla ya nos dio la clave plana
+        setFormData({
+          serviceName: initialData.serviceName || "",
+          username: initialData.username || "",
+          password: initialData.password || "", 
+          url: initialData.url || "",
+          notes: initialData.notes || ""
+        });
       } else {
+        // MODO CREACIÓN: Limpiamos el formulario
         setFormData({
           serviceName: "",
           username: "",
@@ -61,9 +50,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
           notes: ""
         });
       }
-    };
-
-    prepareData();
+    }
   }, [initialData, isOpen]);
 
   if (!isOpen) return null;
@@ -84,9 +71,9 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
       });
 
       if (response.ok) {
-        onClose();
+        onClose(); // Cerramos y el componente padre debería recargar la lista
       } else {
-        console.error("Error en la petición");
+        console.error("Error en la petición al servidor");
       }
     } catch (error) {
       console.error("Error al guardar:", error);
@@ -112,7 +99,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Servicio</label>
               <input 
                 type="text" placeholder="Ej: Netflix, Google..."
-                className="w-full p-2.5 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-2.5 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 value={formData.serviceName}
                 onChange={(e) => setFormData({...formData, serviceName: e.target.value})}
                 required 
@@ -123,7 +110,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Usuario</label>
               <input 
                 type="text" placeholder="Correo o usuario"
-                className="w-full p-2.5 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-2.5 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 value={formData.username}
                 onChange={(e) => setFormData({...formData, username: e.target.value})}
                 required 
@@ -131,18 +118,15 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
             </div>
             
             <div>
-              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
-                Contraseña
-              </label>
+              <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Contraseña</label>
               <div className="relative group">
                 <input 
                   type={showPassword ? "text" : "password"} 
-                  placeholder={isLoadingPassword ? "Cargando..." : "********"}
-                  className="w-full p-2.5 pr-20 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all disabled:bg-gray-50"
+                  placeholder="********"
+                  className="w-full p-2.5 pr-20 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                   value={formData.password}
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   required
-                  disabled={isLoadingPassword}
                 />
                 
                 <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -160,11 +144,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
                     onClick={() => setShowPassword(!showPassword)}
                     className="p-1.5 text-gray-400 hover:text-blue-600 transition-colors"
                   >
-                    {showPassword ? (
-                      <EyeClosed className="w-5 h-5"/>
-                    ) : (
-                      <Eye className="w-5 h-5"/>
-                    )}
+                    {showPassword ? <EyeClosed className="w-5 h-5"/> : <Eye className="w-5 h-5"/>}
                   </button>
                 </div>
               </div>
@@ -174,7 +154,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">URL</label>
               <input 
                 type="url" placeholder="https://..."
-                className="w-full p-2.5 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full p-2.5 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all"
                 value={formData.url}
                 onChange={(e) => setFormData({...formData, url: e.target.value})}
               />
@@ -184,7 +164,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Notas</label>
               <textarea 
                 placeholder="Detalles extra..."
-                className="w-full p-2.5 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none transition-all"
+                className="w-full p-2.5 border text-gray-700 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none h-24 resize-none transition-all"
                 value={formData.notes}
                 onChange={(e) => setFormData({...formData, notes: e.target.value})}
               />
@@ -200,8 +180,7 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
               </button>
               <button 
                 type="submit" 
-                className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow-lg transition-colors disabled:bg-blue-400"
-                disabled={isLoadingPassword}
+                className="flex-1 bg-blue-600 text-white py-2.5 rounded-lg hover:bg-blue-700 font-bold shadow-lg transition-colors"
               >
                 {initialData ? "Actualizar" : "Guardar"}
               </button>

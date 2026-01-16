@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { encrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/crypto"; // Añadimos decrypt
 import { getServerSession } from "next-auth";
 import { authOptions } from "../auth/[...nextauth]/route";
 
@@ -11,7 +11,6 @@ export async function GET() {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    // Buscamos todas las credenciales que pertenezcan al ID del usuario logueado
     const credentials = await prisma.credential.findMany({
       where: {
         userId: session.user.id,
@@ -21,7 +20,23 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(credentials);
+    // --- PROCESO DE DESENCRIPTACIÓN PARA EL FRONTEND ---
+    const decryptedCredentials = credentials.map((item) => {
+      try {
+        // Usamos los campos iv y encryptedPassword que guardamos en el POST
+        const decryptedPassword = decrypt(item.encryptedPassword, item.iv);
+        
+        return {
+          ...item,
+          password: decryptedPassword, // Creamos una propiedad 'password' con la clave real
+        };
+      } catch (error) {
+        console.error(`Error al desencriptar item ${item.id}:`, error);
+        return { ...item, password: "Error al desencriptar" };
+      }
+    });
+
+    return NextResponse.json(decryptedCredentials);
   } catch (error) {
     console.error("Error al obtener credenciales:", error);
     return NextResponse.json(
@@ -33,13 +48,11 @@ export async function GET() {
 
 export async function POST(req) {
   try {
-    // Se valida la sesión de usuario
     const session = await getServerSession(authOptions);
     if (!session) {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
 
-    // Obtengo los datos del cuerpo de la petición
     const { serviceName, username, password, url, notes } = await req.json();
 
     if (!serviceName || !username || !password) {
@@ -52,12 +65,11 @@ export async function POST(req) {
     // Cifro la contraseña
     const { iv, encryptedData } = encrypt(password);
 
-    // Se guarda en la base de datos con Prisma
     const nuevaCredencial = await prisma.credential.create({
       data: {
         serviceName,
         username,
-        encryptedPassword: encryptedData, // Se mapea el resultado de mi crypto.js
+        encryptedPassword: encryptedData,
         iv,
         url: url || null,
         notes: notes || null,
