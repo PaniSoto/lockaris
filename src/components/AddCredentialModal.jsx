@@ -79,7 +79,10 @@ export default function AddCredentialModal({ isOpen, onClose, initialData = null
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) onClose();
+      // CAMBIO AQUÍ: Pasa "true" para que el padre sepa que hubo éxito
+      if (response.ok) {
+        onClose(true); 
+      }
     } catch (error) {
       console.error("Error al guardar:", error);
     }

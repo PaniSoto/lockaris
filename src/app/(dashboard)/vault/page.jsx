@@ -1,34 +1,29 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import useSWR from 'swr'; // 1. Importamos SWR
 import AddCredentialModal from "@/components/AddCredentialModal";
 import PageHeader from "@/components/PageHeader";
 
 import { KeySquare, Search, X, Plus, CreditCard, FileText } from "lucide-react";
 import VaultTable from "@/components/vault/VaultTable";
 
+// 2. Definimos el fetcher fuera del componente
+const fetcher = (url) => fetch(url).then((res) => res.json());
+
 export default function VaultPage() {
-  const [credentials, setCredentials] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
   // Estados de UI
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Menú del botón "Nuevo"
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
-  const [activeMenu, setActiveMenu] = useState(null); // Menú de acciones en la tabla ( ⋮ )
+  const [activeMenu, setActiveMenu] = useState(null);
 
-  const fetchCredentials = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch("/api/credentials");
-      if (res.ok) setCredentials(await res.json());
-    } finally { setIsLoading(false); }
-  };
+  // 3. SWR reemplaza a tus estados de credentials e isLoading y al useEffect de carga
+  const { data: credentials = [], mutate, isLoading } = useSWR("/api/credentials", fetcher);
 
   useEffect(() => {
-    fetchCredentials();
-    
-    // Cerrar todos los menús al hacer clic fuera
+    // Solo dejamos el listener para cerrar menús
     const closeAll = () => {
       setIsMenuOpen(false);
       setActiveMenu(null);
@@ -37,6 +32,7 @@ export default function VaultPage() {
     return () => window.removeEventListener("click", closeAll);
   }, []);
 
+  // El buscador sigue funcionando igual con los datos de SWR
   const filteredItems = useMemo(() => {
     const q = searchTerm.toLowerCase();
     return credentials.filter(c => 
@@ -51,11 +47,16 @@ export default function VaultPage() {
     setActiveMenu(null);
   };
 
+  // 4. Modificamos el Delete para usar mutate
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!confirm("¿Eliminar esta credencial?")) return;
+    
     const res = await fetch(`/api/credentials/${id}`, { method: "DELETE" });
-    if (res.ok) fetchCredentials();
+    if (res.ok) {
+      // "Mutamos" los datos: SWR refresca la lista en segundo plano sin parpadeos
+      mutate(); 
+    }
   };
 
   return (
@@ -63,7 +64,6 @@ export default function VaultPage() {
       <div className="flex justify-between items-center mb-10">
         <PageHeader />
 
-        {/* BOTÓN NUEVO CON MENÚ DESPLEGABLE */}
         <div className="relative">
           <button 
             onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
@@ -87,19 +87,14 @@ export default function VaultPage() {
                 </div>
               </button>
 
-              {/* OPCIONES DESHABILITADAS (PARA EL FUTURO) */}
               <button className="w-full text-left px-4 py-3 text-sm text-gray-300 flex items-center gap-3 cursor-not-allowed">
                 <CreditCard size={18} />
-                <div className="flex flex-col">
-                  <span className="font-bold">Tarjeta de pago (Próximamente)</span>
-                </div>
+                <span className="font-bold">Tarjeta de pago (Próximamente)</span>
               </button>
               
               <button className="w-full text-left px-4 py-3 text-sm text-gray-300 flex items-center gap-3 cursor-not-allowed">
                 <FileText size={18} />
-                <div className="flex flex-col">
-                  <span className="font-bold">Nota segura (Próximamente)</span>
-                </div>
+                <span className="font-bold">Nota segura (Próximamente)</span>
               </button>
             </div>
           )}
@@ -123,7 +118,7 @@ export default function VaultPage() {
         )}
       </div>
 
-      {/* TABLA */}
+      {/* TABLA: isLoading ahora viene de SWR y solo será true la primera vez */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-visible">
         <VaultTable
           items={filteredItems} 
@@ -138,10 +133,11 @@ export default function VaultPage() {
       <AddCredentialModal 
         isOpen={isModalOpen} 
         initialData={editingItem}
-        onClose={() => {
+        onClose={(success) => {
           setIsModalOpen(false);
           setEditingItem(null);
-          fetchCredentials(); 
+          // 5. Si se guardó con éxito, disparamos mutate para refrescar en silencio
+          if (success) mutate(); 
         }} 
       />
     </div>
