@@ -1,154 +1,170 @@
-import { MoreVertical, Edit, Trash2, Copy, Check, Loader2 } from "lucide-react";
+"use client";
+import { MoreVertical, Edit, Trash2, CreditCard, FileText, KeySquare, ChevronRight, Copy, Check, Loader2 } from "lucide-react";
 import { useState } from "react";
-
-// Componente auxiliar para el efecto de carga (Skeleton)
-const TableSkeleton = () => (
-  <tr className="animate-pulse">
-    <td className="px-6 py-4">
-      <div className="flex items-center gap-3">
-        <div className="h-9 w-9 bg-gray-200 rounded-lg"></div>
-        <div className="h-4 bg-gray-200 rounded w-24"></div>
-      </div>
-    </td>
-    <td className="px-6 py-4">
-      <div className="h-4 bg-gray-100 rounded w-32"></div>
-    </td>
-    <td className="px-6 py-4 text-right">
-      <div className="inline-block h-8 w-8 bg-gray-50 rounded-full"></div>
-    </td>
-  </tr>
-);
 
 export default function VaultTable({ items, isLoading, onEdit, onDelete, activeMenu, setActiveMenu }) {
   const [copiedId, setCopiedId] = useState(null);
-  const [isFetchingPass, setIsFetchingPass] = useState(null);
+  const [isFetchingSensitive, setIsFetchingSensitive] = useState(null);
 
-  // Obtiene la clave del servidor solo cuando se solicita (Seguridad reforzada)
-  const handleCopyPassword = async (id) => {
-    setIsFetchingPass(id);
+  // Manejador para copiar datos (Password, CVV o Notas)
+  const handleCopySensitive = async (e, id, type, fieldToCopy) => {
+    e.stopPropagation(); // Evita que se abra el modal
+    setIsFetchingSensitive(id);
     try {
       const res = await fetch(`/api/credentials/${id}`, { method: 'POST' });
       const data = await res.json();
 
-      if (data.password) {
-        await navigator.clipboard.writeText(data.password);
-        setCopiedId(`pass-${id}`);
+      let textToCopy = "";
+      if (type === "CARD") {
+        textToCopy = fieldToCopy === "cvv" ? data.cvv : data.cardNumber;
+      } else if (type === "NOTE") {
+        textToCopy = data.notes;
+      } else {
+        textToCopy = data.password;
+      }
+
+      if (textToCopy) {
+        await navigator.clipboard.writeText(textToCopy);
+        setCopiedId(`${fieldToCopy}-${id}`);
         setTimeout(() => setCopiedId(null), 2000);
       }
     } catch (err) {
-      console.error("Error al obtener la clave:", err);
-      alert("Error de seguridad al recuperar la contraseña.");
+      console.error("Error al obtener datos:", err);
     } finally {
-      setIsFetchingPass(null);
+      setIsFetchingSensitive(null);
     }
   };
 
-  const handleCopyUser = async (text, id) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedId(`user-${id}`);
+  const handleCopySimple = (e, text, id, fieldName) => {
+    e.stopPropagation(); // Evita que se abra el modal
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedId(`${fieldName}-${id}`);
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  if (isLoading) {
+    return (
+      <div className="divide-y divide-gray-100">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="p-4 animate-pulse flex items-center gap-4">
+            <div className="h-10 w-10 bg-gray-200 rounded-xl"></div>
+            <div className="space-y-2 flex-1">
+              <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+              <div className="h-3 bg-gray-100 rounded w-1/4"></div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-left">
-        <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-bold">
-          <tr>
-            <th className="px-6 py-4">Servicio</th>
-            <th className="px-6 py-4">Usuario</th>
-            <th className="px-6 py-4 text-right">Acciones</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100">
-          {isLoading ? (
-            // Renderizamos 5 filas de esqueleto mientras carga
-            <>
-              <TableSkeleton />
-              <TableSkeleton />
-              <TableSkeleton />
-              <TableSkeleton />
-              <TableSkeleton />
-            </>
-          ) : items.length === 0 ? (
-            <tr>
-              <td colSpan="3" className="p-20 text-center text-gray-400">
-                No hay elementos guardados.
-              </td>
-            </tr>
-          ) : (
-            items.map((item) => (
-              <tr key={item.id} className="hover:bg-gray-50 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center font-bold uppercase">
-                      {item.serviceName.charAt(0)}
-                    </div>
-                    <span className="font-semibold text-gray-900">{item.serviceName}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-gray-600 text-sm">{item.username}</td>
-                <td className="px-6 py-4 text-right relative">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenu(activeMenu === item.id ? null : item.id);
-                    }}
-                    className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    <MoreVertical size={18} />
-                  </button>
+    <div className="z-index">
+      <div className="divide-y divide-gray-100">
+        {items.map((item) => (
+          <div 
+            key={item.id} 
+            onClick={() => onEdit(item)} 
+            className="group flex items-center justify-between p-4 hover:bg-blue-50/50 cursor-pointer transition-all border-l-4 border-transparent hover:border-blue-500"
+          >
+            {/* IZQUIERDA: ICONO Y TEXTOS */}
+            <div className="flex items-center gap-4">
+              <div className={`h-11 w-11 rounded-xl flex items-center justify-center shadow-sm border ${
+                item.type === 'CARD' ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 
+                item.type === 'NOTE' ? 'bg-amber-50 border-amber-100 text-amber-600' : 
+                'bg-blue-50 border-blue-100 text-blue-600'
+              }`}>
+                {item.type === 'CARD' ? <CreditCard size={22}/> : 
+                 item.type === 'NOTE' ? <FileText size={22}/> : 
+                 <KeySquare size={22}/>}
+              </div>
 
-                  {activeMenu === item.id && (
-                    <div className="absolute right-6 top-10 w-48 bg-white border border-gray-200 rounded-xl shadow-xl z-50 py-1 overflow-hidden text-left animate-in fade-in zoom-in duration-100">
-                      {/* COPIAR USUARIO */}
-                      <button 
-                        onClick={() => handleCopyUser(item.username, item.id)}
-                        className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between"
-                      >
-                        <span className="flex items-center gap-2"><Copy size={14}/> Copiar usuario</span>
-                        {copiedId === `user-${item.id}` && <Check size={14} className="text-green-500" />}
-                      </button>
+              <div className="flex flex-col">
+                <span className="font-bold text-gray-900 text-base group-hover:text-blue-700 transition-colors">
+                  {item.serviceName}
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                  {item.type === 'CARD' ? 'Tarjeta de pago' : 
+                   item.type === 'NOTE' ? 'Nota Segura' : 'Inicio de sesión'}
+                  {item.username && <span className="lowercase text-gray-300"> • {item.username}</span>}
+                </span>
+              </div>
+            </div>
 
-                      {/* COPIAR CONTRASEÑA */}
-                      <button 
-                        onClick={() => handleCopyPassword(item.id)}
-                        disabled={isFetchingPass === item.id}
-                        className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100"
-                      >
+            {/* DERECHA: ICONO DE ESTADO Y TRES PUNTOS */}
+            <div className="flex items-center gap-2">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity mr-2">
+                <ChevronRight size={18} className="text-gray-300" />
+              </div>
+              
+              <div className="relative">
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMenu(activeMenu === item.id ? null : item.id);
+                  }}
+                  className="p-2 hover:bg-gray-200 rounded-full text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <MoreVertical size={20} />
+                </button>
+
+                {activeMenu === item.id && (
+                  <div className="absolute right-0 top-10 w-56 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 py-1 overflow-hidden animate-in fade-in zoom-in duration-100">
+                    
+                    {/* OPCIONES SEGÚN TIPO */}
+                    {item.type === "CARD" ? (
+                      <>
+                        <button onClick={(e) => handleCopySensitive(e, item.id, "CARD", "cardNumber")} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Copy size={14}/> Copiar número</span>
+                          {copiedId === `cardNumber-${item.id}` && <Check size={14} className="text-green-500" />}
+                        </button>
+                        <button onClick={(e) => handleCopySensitive(e, item.id, "CARD", "cvv")} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100">
+                          <span className="flex items-center gap-2">
+                             {isFetchingSensitive === item.id ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14}/>} 
+                             Copiar CVV
+                          </span>
+                          {copiedId === `cvv-${item.id}` && <Check size={14} className="text-green-500" />}
+                        </button>
+                      </>
+                    ) : item.type === "NOTE" ? (
+                      <button onClick={(e) => handleCopySensitive(e, item.id, "NOTE", "notes")} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100">
                         <span className="flex items-center gap-2">
-                          {isFetchingPass === item.id ? (
-                            <Loader2 size={14} className="animate-spin text-blue-500"/>
-                          ) : (
-                            <Copy size={14}/>
-                          )}
-                          Copiar clave
+                          {isFetchingSensitive === item.id ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14}/>} 
+                          Copiar nota
                         </span>
-                        {copiedId === `pass-${item.id}` && <Check size={14} className="text-green-500" />}
+                        {copiedId === `notes-${item.id}` && <Check size={14} className="text-green-500" />}
                       </button>
+                    ) : (
+                      <>
+                        <button onClick={(e) => handleCopySimple(e, item.username, item.id, "user")} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Copy size={14}/> Copiar usuario</span>
+                          {copiedId === `user-${item.id}` && <Check size={14} className="text-green-500" />}
+                        </button>
+                        <button onClick={(e) => handleCopySensitive(e, item.id, "LOGIN", "password")} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-between border-b border-gray-100">
+                          <span className="flex items-center gap-2">
+                             {isFetchingSensitive === item.id ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14}/>} 
+                             Copiar clave
+                          </span>
+                          {copiedId === `password-${item.id}` && <Check size={14} className="text-green-500" />}
+                        </button>
+                      </>
+                    )}
 
-                      {/* EDITAR */}
-                      <button 
-                        onClick={() => onEdit(item)}
-                        className="w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 mt-1"
-                      >
-                        <Edit size={14} /> Editar
-                      </button>
-
-                      {/* ELIMINAR */}
-                      <button 
-                        onClick={(e) => onDelete(e, item.id)}
-                        className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <Trash2 size={14} /> Eliminar
-                      </button>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+                    {/* ACCIONES COMUNES */}
+                    <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 mt-1">
+                      <Edit size={14} className="text-blue-500" /> Editar detalles
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); onDelete(e, item.id); }} className="w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2">
+                      <Trash2 size={14} /> Eliminar
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

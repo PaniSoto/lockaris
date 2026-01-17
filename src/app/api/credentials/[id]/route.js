@@ -2,62 +2,90 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { decrypt } from "@/lib/crypto";
-import { encrypt } from "@/lib/crypto";
+import { decrypt, encrypt } from "@/lib/crypto";
 
-// Se encarga de descifrar y devolver la contraseña de una credencial en específico
-export async function POST(req, { params }) {
+// POST: Se usa para recuperar datos sensibles (Password, Tarjeta, CVV, Notas Seguras)
+export async function POST(request, { params }) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session)
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-
     const { id } = await params;
 
-    const credential = await prisma.credential.findFirst({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
+    if (!id) {
+      return NextResponse.json({ error: "ID no proporcionado" }, { status: 400 });
+    }
+
+    const credential = await prisma.credential.findUnique({ 
+      where: { id } 
     });
 
-    if (!credential)
-      return NextResponse.json({ message: "No encontrado" }, { status: 404 });
+    if (!credential) {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
 
-    const decryptedPassword = decrypt(
-      credential.encryptedPassword,
-      credential.iv
-    );
+    // CASO: TARJETAS
+    if (credential.type === "CARD") {
+      let cardNumber = "";
+      let cvv = "";
 
-    // Se devuelve la contraseña descifrada
-    return NextResponse.json({ password: decryptedPassword });
+      try {
+        cardNumber = decrypt(credential.encryptedCardNumber, credential.iv);
+      } catch (e) {
+        cardNumber = "Error al descifrar número";
+      }
+
+      try {
+        cvv = credential.encryptedCvv 
+          ? decrypt(credential.encryptedCvv, credential.iv) 
+          : "";
+      } catch (e) {
+        cvv = "???"; 
+      }
+
+      return NextResponse.json({
+        cardNumber,
+        cvv,
+        cardholderName: credential.cardholderName,
+        expiryDate: credential.expiryDate
+      });
+    }
+
+    // CASO: NOTAS SEGURAS
+    if (credential.type === "NOTE") {
+      try {
+        const decryptedNotes = decrypt(credential.notes, credential.iv);
+        return NextResponse.json({ notes: decryptedNotes });
+      } catch (e) {
+        return NextResponse.json({ notes: "Error al descifrar nota" }, { status: 500 });
+      }
+    }
+
+    // CASO: LOGINS (Por defecto)
+    try {
+      const password = decrypt(credential.encryptedPassword, credential.iv);
+      return NextResponse.json({ password });
+    } catch (e) {
+      return NextResponse.json({ error: "Error al descifrar contraseña" }, { status: 500 });
+    }
+
   } catch (error) {
-    console.error("Error en POST decrypt:", error);
-    return NextResponse.json({ message: "Error" }, { status: 500 });
+    console.error("Error global en API POST:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
+// DELETE: Eliminar credencial
 export async function DELETE(req, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session)
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
 
-    // Se usa deleteMany porque delete() solo permite filtrar por campos únicos.
     const deleted = await prisma.credential.deleteMany({
-      where: {
-        id: id,
-        userId: session.user.id,
-      },
+      where: { id: id, userId: session.user.id },
     });
 
     if (deleted.count === 0) {
-      return NextResponse.json(
-        { message: "No encontrado o no autorizado" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: "No encontrado" }, { status: 404 });
     }
 
     return NextResponse.json({ message: "Eliminado con éxito" });
@@ -67,41 +95,60 @@ export async function DELETE(req, { params }) {
   }
 }
 
+// PUT: Actualizar credencial
 export async function PUT(req, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session)
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-
     const body = await req.json();
-    const { serviceName, username, password, url, notes } = body;
+    const { type, serviceName, notes, url } = body;
 
-    // Primero se verifica que la credencial pertenece al usuario antes de actualizar
     const credential = await prisma.credential.findFirst({
       where: { id: id, userId: session.user.id },
     });
 
-    if (!credential) {
-      return NextResponse.json(
-        { message: "No encontrado o no autorizado" },
-        { status: 404 }
-      );
-    }
+    if (!credential) return NextResponse.json({ message: "No encontrado" }, { status: 404 });
 
-    const dataToUpdate = {
+    let dataToUpdate = {
       serviceName,
-      username,
       url: url || null,
-      notes: notes || null,
     };
 
-    // Si hay nueva contraseña, se cifra
-    if (password && password.trim() !== "") {
-      const { iv, encryptedData } = encrypt(password);
-      dataToUpdate.encryptedPassword = encryptedData;
+    if (type === "CARD") {
+      const { cardholderName, cardNumber, expiryDate, cvv } = body;
+      dataToUpdate.cardholderName = cardholderName;
+      dataToUpdate.expiryDate = expiryDate;
+      dataToUpdate.notes = notes || null; // Notas planas en tarjetas
+
+      if (cardNumber && !cardNumber.includes('*')) {
+        const cardEnc = encrypt(cardNumber);
+        const newIv = cardEnc.iv;
+        const cvvEnc = encrypt(cvv || "", newIv);
+
+        dataToUpdate.encryptedCardNumber = cardEnc.encryptedData;
+        dataToUpdate.encryptedCvv = cvvEnc.encryptedData;
+        dataToUpdate.iv = newIv;
+      }
+    } 
+    else if (type === "NOTE") {
+      // Lógica para NOTAS SEGURAS
+      // Siempre re-encriptamos al guardar para asegurar que use un IV fresco
+      const { iv, encryptedData } = encrypt(notes || "");
+      dataToUpdate.notes = encryptedData;
       dataToUpdate.iv = iv;
+    } 
+    else {
+      // Lógica LOGIN
+      dataToUpdate.username = body.username;
+      dataToUpdate.notes = notes || null; // Notas planas en logins
+      
+      if (body.password && body.password.trim() !== "" && !body.password.includes('●')) {
+        const { iv, encryptedData } = encrypt(body.password);
+        dataToUpdate.encryptedPassword = encryptedData;
+        dataToUpdate.iv = iv;
+      }
     }
 
     const updated = await prisma.credential.update({
@@ -112,9 +159,6 @@ export async function PUT(req, { params }) {
     return NextResponse.json(updated);
   } catch (error) {
     console.error("PUT_ERROR:", error);
-    return NextResponse.json(
-      { message: "Error al actualizar" },
-      { status: 500 }
-    );
+    return NextResponse.json({ message: "Error al actualizar" }, { status: 500 });
   }
 }

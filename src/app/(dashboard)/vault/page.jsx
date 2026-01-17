@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import useSWR from 'swr';
+import useSWR from "swr";
 import AddCredentialModal from "@/components/AddCredentialModal";
 import PageHeader from "@/components/PageHeader";
-import { toast } from "sonner"; // 1. IMPORTAR TOAST
+import { toast } from "sonner";
 
 import { KeySquare, Search, X, Plus, CreditCard, FileText } from "lucide-react";
 import VaultTable from "@/components/vault/VaultTable";
@@ -16,8 +16,13 @@ export default function VaultPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
+  const [modalType, setModalType] = useState("LOGIN");
 
-  const { data: credentials = [], mutate, isLoading } = useSWR("/api/credentials", fetcher);
+  const {
+    data: credentials = [],
+    mutate,
+    isLoading,
+  } = useSWR("/api/credentials", fetcher);
 
   useEffect(() => {
     const closeAll = () => {
@@ -28,16 +33,26 @@ export default function VaultPage() {
     return () => window.removeEventListener("click", closeAll);
   }, []);
 
+  // FILTRO ACTUALIZADO: Mínimo 2 letras
   const filteredItems = useMemo(() => {
-    const q = searchTerm.toLowerCase();
-    return credentials.filter(c => 
-      c.serviceName?.toLowerCase().includes(q) || 
-      c.username?.toLowerCase().includes(q)
+    const q = searchTerm.toLowerCase().trim();
+
+    // Si hay menos de 2 letras, mostramos todo sin filtrar
+    if (q.length < 2) {
+      return credentials;
+    }
+
+    // Si hay 2 o más, aplicamos la búsqueda
+    return credentials.filter(
+      (c) =>
+        c.serviceName?.toLowerCase().includes(q) ||
+        c.username?.toLowerCase().includes(q)
     );
   }, [searchTerm, credentials]);
 
   const openEdit = (item) => {
     setEditingItem(item);
+    setModalType(item.type || "LOGIN");
     setIsModalOpen(true);
     setActiveMenu(null);
   };
@@ -45,11 +60,11 @@ export default function VaultPage() {
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!confirm("¿Eliminar esta credencial?")) return;
-    
+
     const res = await fetch(`/api/credentials/${id}`, { method: "DELETE" });
     if (res.ok) {
-      mutate(); 
-      toast.error("Credencial eliminada"); // 2. TOAST DE ELIMINAR
+      mutate();
+      toast.error("Credencial eliminada");
     } else {
       toast.warning("No se pudo eliminar la credencial");
     }
@@ -61,8 +76,11 @@ export default function VaultPage() {
         <PageHeader />
 
         <div className="relative">
-          <button 
-            onClick={(e) => { e.stopPropagation(); setIsMenuOpen(!isMenuOpen); }}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMenuOpen(!isMenuOpen);
+            }}
             className="bg-blue-600 text-white px-6 py-2.5 rounded-full font-bold shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2"
           >
             <Plus size={18} /> Nuevo
@@ -73,14 +91,37 @@ export default function VaultPage() {
               <button
                 onClick={() => {
                   setEditingItem(null);
+                  setModalType("LOGIN");
                   setIsModalOpen(true);
                 }}
-                className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+                className="w-full text-left px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
               >
-                <KeySquare size={18} className="text-blue-500"/>
-                <span className="font-bold">Inicio de sesión</span>
+                <KeySquare size={18} className="text-blue-500" />
+                Inicio de sesión
               </button>
-              {/* ... resto de botones ... */}
+
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setModalType("CARD");
+                  setIsModalOpen(true);
+                }}
+                className="w-full text-left px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+              >
+                <CreditCard size={18} className="text-emerald-500" /> Tarjeta de pago
+              </button>
+
+              <button
+                onClick={() => {
+                  setEditingItem(null);
+                  setModalType("NOTE");
+                  setIsModalOpen(true);
+                }}
+                className="w-full text-left px-4 py-3 text-sm font-bold text-gray-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
+              >
+                <FileText size={18} className="text-amber-500" />
+                Nota segura
+              </button>
             </div>
           )}
         </div>
@@ -91,13 +132,16 @@ export default function VaultPage() {
         <Search className="absolute left-4 top-3.5 text-gray-400" size={20} />
         <input
           type="text"
-          placeholder="Buscar en tu bóveda..."
+          placeholder="Buscar (mínimo 2 letras)..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full bg-white border border-gray-200 py-3.5 pl-12 pr-10 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all text-gray-700"
         />
         {searchTerm && (
-          <button onClick={() => setSearchTerm("")} className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600">
+          <button
+            onClick={() => setSearchTerm("")}
+            className="absolute right-4 top-3.5 text-gray-400 hover:text-gray-600"
+          >
             <X size={20} />
           </button>
         )}
@@ -105,8 +149,8 @@ export default function VaultPage() {
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-visible">
         <VaultTable
-          items={filteredItems} 
-          isLoading={isLoading} 
+          items={filteredItems}
+          isLoading={isLoading}
           onEdit={openEdit}
           onDelete={handleDelete}
           activeMenu={activeMenu}
@@ -114,18 +158,22 @@ export default function VaultPage() {
         />
       </div>
 
-      <AddCredentialModal 
-        isOpen={isModalOpen} 
+      <AddCredentialModal
+        isOpen={isModalOpen}
         initialData={editingItem}
+        type={modalType}
         onClose={(success) => {
           setIsModalOpen(false);
-          if (success) {
-            mutate(); 
-            // 3. TOAST DINÁMICO (Diferencia entre editar y crear)
-            toast.success(editingItem ? "Credencial actualizada" : "Credencial guardada");
+          if (success === true) {
+            mutate();
+            toast.success(
+              editingItem
+                ? "Actualizado correctamente"
+                : "Guardado correctamente",
+            );
           }
           setEditingItem(null);
-        }} 
+        }}
       />
     </div>
   );

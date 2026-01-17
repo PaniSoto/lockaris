@@ -15,16 +15,27 @@ model User {
   credentials Credential[]
 }
 
+enum CredentialType {
+  LOGIN
+  CARD
+  NOTE
+}
+
 model Credential {
-  id                String   @id @default(uuid())
-  serviceName       String
-  username          String
-  encryptedPassword String
-  iv                String
-  url               String?  // Campo para la dirección web (opcional)
-  notes             String?  // Campo para anotaciones (opcional)
-  createdAt         DateTime @default(now()) // Fecha de creación
-  updatedAt         DateTime @updatedAt      // Se actualiza sola al editar
+  id                String         @id @default(uuid())
+  type              CredentialType @default(LOGIN)
+  serviceName       String         
+  notes             String?        // Notas visibles (no encriptadas)
+  username          String?        // Opcional porque una Nota no tiene usuario
+  url               String?
+  encryptedPassword String?        // Opcional porque una Nota no tiene password
+  cardholderName    String?        // Nombre del titular
+  encryptedCardNumber String?      // El número largo (Encriptado)
+  encryptedCvv      String?        // El código de seguridad (Encriptado)
+  expiryDate        String?        // MM/YY
+  iv                String         // Vector de inicialización principal
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
   userId            String
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
