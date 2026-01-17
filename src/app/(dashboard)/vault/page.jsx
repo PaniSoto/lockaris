@@ -1,29 +1,25 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
-import useSWR from 'swr'; // 1. Importamos SWR
+import useSWR from 'swr';
 import AddCredentialModal from "@/components/AddCredentialModal";
 import PageHeader from "@/components/PageHeader";
+import { toast } from "sonner"; // 1. IMPORTAR TOAST
 
 import { KeySquare, Search, X, Plus, CreditCard, FileText } from "lucide-react";
 import VaultTable from "@/components/vault/VaultTable";
 
-// 2. Definimos el fetcher fuera del componente
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function VaultPage() {
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // Estados de UI
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
 
-  // 3. SWR reemplaza a tus estados de credentials e isLoading y al useEffect de carga
   const { data: credentials = [], mutate, isLoading } = useSWR("/api/credentials", fetcher);
 
   useEffect(() => {
-    // Solo dejamos el listener para cerrar menús
     const closeAll = () => {
       setIsMenuOpen(false);
       setActiveMenu(null);
@@ -32,7 +28,6 @@ export default function VaultPage() {
     return () => window.removeEventListener("click", closeAll);
   }, []);
 
-  // El buscador sigue funcionando igual con los datos de SWR
   const filteredItems = useMemo(() => {
     const q = searchTerm.toLowerCase();
     return credentials.filter(c => 
@@ -47,15 +42,16 @@ export default function VaultPage() {
     setActiveMenu(null);
   };
 
-  // 4. Modificamos el Delete para usar mutate
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!confirm("¿Eliminar esta credencial?")) return;
     
     const res = await fetch(`/api/credentials/${id}`, { method: "DELETE" });
     if (res.ok) {
-      // "Mutamos" los datos: SWR refresca la lista en segundo plano sin parpadeos
       mutate(); 
+      toast.error("Credencial eliminada"); // 2. TOAST DE ELIMINAR
+    } else {
+      toast.warning("No se pudo eliminar la credencial");
     }
   };
 
@@ -82,20 +78,9 @@ export default function VaultPage() {
                 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 flex items-center gap-3 transition-colors"
               >
                 <KeySquare size={18} className="text-blue-500"/>
-                <div className="flex flex-col">
-                  <span className="font-bold">Inicio de sesión</span>
-                </div>
+                <span className="font-bold">Inicio de sesión</span>
               </button>
-
-              <button className="w-full text-left px-4 py-3 text-sm text-gray-300 flex items-center gap-3 cursor-not-allowed">
-                <CreditCard size={18} />
-                <span className="font-bold">Tarjeta de pago (Próximamente)</span>
-              </button>
-              
-              <button className="w-full text-left px-4 py-3 text-sm text-gray-300 flex items-center gap-3 cursor-not-allowed">
-                <FileText size={18} />
-                <span className="font-bold">Nota segura (Próximamente)</span>
-              </button>
+              {/* ... resto de botones ... */}
             </div>
           )}
         </div>
@@ -118,7 +103,6 @@ export default function VaultPage() {
         )}
       </div>
 
-      {/* TABLA: isLoading ahora viene de SWR y solo será true la primera vez */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-visible">
         <VaultTable
           items={filteredItems} 
@@ -135,9 +119,12 @@ export default function VaultPage() {
         initialData={editingItem}
         onClose={(success) => {
           setIsModalOpen(false);
+          if (success) {
+            mutate(); 
+            // 3. TOAST DINÁMICO (Diferencia entre editar y crear)
+            toast.success(editingItem ? "Credencial actualizada" : "Credencial guardada");
+          }
           setEditingItem(null);
-          // 5. Si se guardó con éxito, disparamos mutate para refrescar en silencio
-          if (success) mutate(); 
         }} 
       />
     </div>
