@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 export default function PageHeader() {
   const pathname = usePathname();
 
+  // Se obtiene el título dinámicamente según la ruta actual
   const getTitle = () => {
     switch (pathname) {
       case "/vault":

@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+// Configuración de NextAuth
 export const authOptions = {
   providers: [
     CredentialsProvider({
@@ -20,7 +21,7 @@ export const authOptions = {
 
         const passwordMatch = await bcrypt.compare(
           credentials.password,
-          user.password
+          user.password,
         );
 
         if (!passwordMatch) return null;
@@ -35,7 +36,7 @@ export const authOptions = {
   ],
   callbacks: {
     async jwt({ token, user }) {
-      // Si el usuario existe cuando estas en el login, se mete su ID y Name en el JWT
+      // Si el usuario existe cuando estas en el login, se mete su id y name en el JWT
       if (user) {
         token.id = user.id;
         token.name = user.name;

@@ -12,12 +12,17 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
+/**
+ * Modal para crear y editar las credenciales.
+ * Soporta los tipos: LOGIN, CARD y NOTE.
+ */
 export default function AddCredentialModal({
   isOpen,
   onClose,
   initialData = null,
   type = "LOGIN",
 }) {
+  // Estado único para el formulario para facilitar la actualización masiva
   const [formData, setFormData] = useState({
     serviceName: "",
     username: "",
@@ -30,14 +35,16 @@ export default function AddCredentialModal({
     cvv: "",
   });
 
+  // Estados para mostrar/ocultar datos sensibles
   const [showPassword, setShowPassword] = useState(false);
   const [showCardNumber, setShowCardNumber] = useState(false);
   const [showCvv, setShowCvv] = useState(false);
   const [isLoadingPass, setIsLoadingPass] = useState(false);
 
-  // Estado para el feedback de copiado (guarda el nombre del campo copiado)
+  // Estado para el feedback visual de copiado
   const [copiedField, setCopiedField] = useState(null);
 
+  //Maneja el copiado al portapapeles
   const handleCopy = (text, fieldName) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
@@ -45,6 +52,7 @@ export default function AddCredentialModal({
     setTimeout(() => setCopiedField(null), 2000);
   };
 
+  // Formatea el número de tarjeta en grupos de 4 dígitos para mejorar la lectura
   const formatCardNumber = (value) => {
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
     const matches = v.match(/\d{4,16}/g);
@@ -57,6 +65,7 @@ export default function AddCredentialModal({
     return v;
   };
 
+  // Para generar una contraseña aleatoria
   const handleGeneratePassword = () => {
     const length = 16;
     const charset =
@@ -66,16 +75,22 @@ export default function AddCredentialModal({
       newPassword += charset.charAt(Math.floor(Math.random() * charset.length));
     }
     setFormData({ ...formData, password: newPassword });
-    setShowPassword(true);
+    setShowPassword(true); // Mostrar para que el usuario vea qué se generó
   };
 
+  /**
+   * Si es edición, recupera los datos sensibles (desencriptados) del servidor
+   * Si es creación, se resetea el formulario
+   */
   useEffect(() => {
     const loadData = async () => {
       if (!isOpen) return;
+
       setShowPassword(false);
       setShowCardNumber(false);
       setShowCvv(false);
 
+      // Si hay datos iniciales, es edición
       if (initialData) {
         setFormData({
           serviceName: initialData.serviceName || "",
@@ -91,11 +106,13 @@ export default function AddCredentialModal({
 
         setIsLoadingPass(true);
         try {
+          // Llamada al endpoint para obtener datos sensibles desencriptados
           const res = await fetch(`/api/credentials/${initialData.id}`, {
             method: "POST",
           });
           const data = await res.json();
 
+          // Lógica para llenar campos según el tipo de credencial
           if (initialData.type === "CARD") {
             setFormData((prev) => ({
               ...prev,
@@ -122,6 +139,7 @@ export default function AddCredentialModal({
           setIsLoadingPass(false);
         }
       } else {
+        // Se limpia el formulario para la nueva entrada
         setFormData({
           serviceName: "",
           username: "",
@@ -140,6 +158,7 @@ export default function AddCredentialModal({
 
   if (!isOpen) return null;
 
+  // Envia los datos al servidor (POST para crear, PUT para actualizar)
   const handleSubmit = async (e) => {
     e.preventDefault();
     const isEditing = !!initialData;
@@ -163,10 +182,12 @@ export default function AddCredentialModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && onClose()} // Cerrar al hacer clic fuera
     >
+      {/* Contenedor modal */}
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="p-6">
+          {/* Cabecera dinámica dependiendo del tipo */}
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
               {type === "CARD" ? (
@@ -196,6 +217,7 @@ export default function AddCredentialModal({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Campo de título / Nombre del servicio */}
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
                 {type === "CARD"
@@ -215,7 +237,9 @@ export default function AddCredentialModal({
               />
             </div>
 
+            {/* Renderizado condicional según el tipo */}
             {type === "NOTE" ? (
+              /* Vista de nota segura */
               <div className="relative group">
                 <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
                   Contenido de la Nota Segura
@@ -243,6 +267,7 @@ export default function AddCredentialModal({
             ) : (
               <>
                 {type === "LOGIN" ? (
+                  /* Vista de inicio de sesión */
                   <>
                     <div className="relative">
                       <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
@@ -287,6 +312,7 @@ export default function AddCredentialModal({
                           required={!initialData}
                           disabled={isLoadingPass}
                         />
+                        {/* Acciones de Contraseña: Copiar, Generar y Ver */}
                         <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                           {!isLoadingPass && (
                             <>
@@ -307,6 +333,7 @@ export default function AddCredentialModal({
                                 type="button"
                                 onClick={handleGeneratePassword}
                                 className="p-1.5 text-gray-400 hover:text-amber-500 transition-colors"
+                                title="Generar contraseña"
                               >
                                 <Shuffle className="w-5 h-5" />
                               </button>
@@ -328,6 +355,7 @@ export default function AddCredentialModal({
                     </div>
                   </>
                 ) : (
+                  /* Vista de tarjeta */
                   <>
                     <div>
                       <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
@@ -434,7 +462,7 @@ export default function AddCredentialModal({
                           <button
                             type="button"
                             onClick={() => handleCopy(formData.cvv, "cvv")}
-                            className="p-1.5 text-gray-400 hover:text-emerald-500"
+                            className="p-1.5 text-gray-400"
                           >
                             {copiedField === "cvv" ? (
                               <Check size={18} className="text-green-500" />
@@ -458,6 +486,7 @@ export default function AddCredentialModal({
                     </div>
                   </>
                 )}
+                {/* Notas adicionales para las tarjetas e inicios de sesión */}
                 <div>
                   <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">
                     Notas adicionales
@@ -473,6 +502,7 @@ export default function AddCredentialModal({
               </>
             )}
 
+            {/* Acciones del Formulario */}
             <div className="flex gap-3 pt-4">
               <button
                 type="button"
@@ -484,7 +514,8 @@ export default function AddCredentialModal({
               <button
                 type="submit"
                 disabled={isLoadingPass}
-                className={`flex-1 text-white py-2.5 rounded-lg font-bold shadow-lg disabled:bg-gray-400 ${type === "CARD" ? "bg-emerald-600" : type === "NOTE" ? "bg-amber-600" : "bg-blue-600"}`}
+                className={`flex-1 text-white py-2.5 rounded-lg font-bold shadow-lg disabled:bg-gray-400 
+                  ${type === "CARD" ? "bg-emerald-600" : type === "NOTE" ? "bg-amber-600" : "bg-blue-600"}`}
               >
                 {initialData ? "Actualizar" : "Guardar"}
               </button>

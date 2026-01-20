@@ -18,15 +18,15 @@ export async function GET() {
 
     const processedItems = credentials.map((item) => {
       try {
-        // Desencriptar LOGINS
+        // Desencriptar logins
         if (item.type === "LOGIN" && item.encryptedPassword) {
           return {
             ...item,
             password: decrypt(item.encryptedPassword, item.iv),
           };
         }
-        
-        // Desencriptar TARJETAS
+
+        // Desencriptar tarjetas
         if (item.type === "CARD" && item.encryptedCardNumber) {
           return {
             ...item,
@@ -35,7 +35,7 @@ export async function GET() {
           };
         }
 
-        // Desencriptar NOTAS SEGURAS
+        // Desencriptar notas seguras
         if (item.type === "NOTE" && item.notes) {
           return {
             ...item,
@@ -43,7 +43,7 @@ export async function GET() {
           };
         }
 
-        return item; 
+        return item;
       } catch (error) {
         console.error(`Error al desencriptar item ${item.id}:`, error);
         return { ...item, error: "Error de desencriptación" };
@@ -53,10 +53,14 @@ export async function GET() {
     return NextResponse.json(processedItems);
   } catch (error) {
     console.error("Error al obtener datos:", error);
-    return NextResponse.json({ message: "Error al obtener datos" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error al obtener datos" },
+      { status: 500 },
+    );
   }
 }
 
+// POST: Se crean nuevas credenciales
 export async function POST(req) {
   try {
     const session = await getServerSession(authOptions);
@@ -68,7 +72,10 @@ export async function POST(req) {
     const { type, serviceName, notes, url } = body;
 
     if (!serviceName) {
-      return NextResponse.json({ message: "El nombre es obligatorio" }, { status: 400 });
+      return NextResponse.json(
+        { message: "El nombre es obligatorio" },
+        { status: 400 },
+      );
     }
 
     let dataToSave = {
@@ -78,7 +85,7 @@ export async function POST(req) {
       userId: session.user.id,
     };
 
-    // --- Lógica según el tipo de dato ---
+    // Dependiendo del tipo de dato, se encriptan y guardan los datos correspondientes
 
     if (type === "CARD") {
       const { cardholderName, cardNumber, expiryDate, cvv } = body;
@@ -94,22 +101,23 @@ export async function POST(req) {
         iv,
         notes: notes || null, // Las notas en tarjetas suelen ser opcionales y planas
       };
-    } 
-    else if (type === "NOTE") {
-      // Para Notas Seguras, encriptamos el campo 'notes'
+    } else if (type === "NOTE") {
+      // Para las notas seguras se encripta el campo 'notes'
       const { iv, encryptedData } = encrypt(notes || "");
-      
+
       dataToSave = {
         ...dataToSave,
         notes: encryptedData,
         iv,
       };
-    } 
-    else {
-      // LOGIN
+    } else {
+      // Lógica del login
       const { username, password } = body;
       if (!username || !password) {
-        return NextResponse.json({ message: "Faltan datos de login" }, { status: 400 });
+        return NextResponse.json(
+          { message: "Faltan datos de login" },
+          { status: 400 },
+        );
       }
 
       const { iv, encryptedData } = encrypt(password);
@@ -122,9 +130,10 @@ export async function POST(req) {
       };
     }
 
-    const nuevaCredencial = await prisma.credential.create({ data: dataToSave });
+    const nuevaCredencial = await prisma.credential.create({
+      data: dataToSave,
+    });
     return NextResponse.json(nuevaCredencial, { status: 201 });
-
   } catch (error) {
     console.error("Error en POST /api/credentials:", error);
     return NextResponse.json({ message: "Error al guardar" }, { status: 500 });

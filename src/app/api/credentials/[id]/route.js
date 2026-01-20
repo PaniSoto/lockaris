@@ -10,11 +10,14 @@ export async function POST(request, { params }) {
     const { id } = await params;
 
     if (!id) {
-      return NextResponse.json({ error: "ID no proporcionado" }, { status: 400 });
+      return NextResponse.json(
+        { error: "ID no proporcionado" },
+        { status: 400 },
+      );
     }
 
-    const credential = await prisma.credential.findUnique({ 
-      where: { id } 
+    const credential = await prisma.credential.findUnique({
+      where: { id },
     });
 
     if (!credential) {
@@ -33,18 +36,18 @@ export async function POST(request, { params }) {
       }
 
       try {
-        cvv = credential.encryptedCvv 
-          ? decrypt(credential.encryptedCvv, credential.iv) 
+        cvv = credential.encryptedCvv
+          ? decrypt(credential.encryptedCvv, credential.iv)
           : "";
       } catch (e) {
-        cvv = "???"; 
+        cvv = "???";
       }
 
       return NextResponse.json({
         cardNumber,
         cvv,
         cardholderName: credential.cardholderName,
-        expiryDate: credential.expiryDate
+        expiryDate: credential.expiryDate,
       });
     }
 
@@ -54,7 +57,10 @@ export async function POST(request, { params }) {
         const decryptedNotes = decrypt(credential.notes, credential.iv);
         return NextResponse.json({ notes: decryptedNotes });
       } catch (e) {
-        return NextResponse.json({ notes: "Error al descifrar nota" }, { status: 500 });
+        return NextResponse.json(
+          { notes: "Error al descifrar nota" },
+          { status: 500 },
+        );
       }
     }
 
@@ -63,20 +69,26 @@ export async function POST(request, { params }) {
       const password = decrypt(credential.encryptedPassword, credential.iv);
       return NextResponse.json({ password });
     } catch (e) {
-      return NextResponse.json({ error: "Error al descifrar contraseña" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Error al descifrar contraseña" },
+        { status: 500 },
+      );
     }
-
   } catch (error) {
     console.error("Error global en API POST:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 },
+    );
   }
 }
 
-// DELETE: Eliminar credencial
+// DELETE: Eliminar credenciales
 export async function DELETE(req, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (!session)
+      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
 
@@ -95,11 +107,12 @@ export async function DELETE(req, { params }) {
   }
 }
 
-// PUT: Actualizar credencial
+// PUT: Actualizar las credenciales
 export async function PUT(req, { params }) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    if (!session)
+      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
     const body = await req.json();
@@ -109,7 +122,8 @@ export async function PUT(req, { params }) {
       where: { id: id, userId: session.user.id },
     });
 
-    if (!credential) return NextResponse.json({ message: "No encontrado" }, { status: 404 });
+    if (!credential)
+      return NextResponse.json({ message: "No encontrado" }, { status: 404 });
 
     let dataToUpdate = {
       serviceName,
@@ -122,7 +136,7 @@ export async function PUT(req, { params }) {
       dataToUpdate.expiryDate = expiryDate;
       dataToUpdate.notes = notes || null; // Notas planas en tarjetas
 
-      if (cardNumber && !cardNumber.includes('*')) {
+      if (cardNumber && !cardNumber.includes("*")) {
         const cardEnc = encrypt(cardNumber);
         const newIv = cardEnc.iv;
         const cvvEnc = encrypt(cvv || "", newIv);
@@ -131,20 +145,22 @@ export async function PUT(req, { params }) {
         dataToUpdate.encryptedCvv = cvvEnc.encryptedData;
         dataToUpdate.iv = newIv;
       }
-    } 
-    else if (type === "NOTE") {
-      // Lógica para NOTAS SEGURAS
-      // Siempre re-encriptamos al guardar para asegurar que use un IV fresco
+    } else if (type === "NOTE") {
+      // Lógica para notas seguras
+      // Siempre se re-encripta al guardar para asegurar que use un IV nuevo
       const { iv, encryptedData } = encrypt(notes || "");
       dataToUpdate.notes = encryptedData;
       dataToUpdate.iv = iv;
-    } 
-    else {
-      // Lógica LOGIN
+    } else {
+      // Lógica del login
       dataToUpdate.username = body.username;
       dataToUpdate.notes = notes || null; // Notas planas en logins
-      
-      if (body.password && body.password.trim() !== "" && !body.password.includes('●')) {
+
+      if (
+        body.password &&
+        body.password.trim() !== "" &&
+        !body.password.includes("●")
+      ) {
         const { iv, encryptedData } = encrypt(body.password);
         dataToUpdate.encryptedPassword = encryptedData;
         dataToUpdate.iv = iv;
@@ -159,6 +175,9 @@ export async function PUT(req, { params }) {
     return NextResponse.json(updated);
   } catch (error) {
     console.error("PUT_ERROR:", error);
-    return NextResponse.json({ message: "Error al actualizar" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error al actualizar" },
+      { status: 500 },
+    );
   }
 }
