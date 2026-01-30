@@ -4,7 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { decrypt, encrypt } from "@/lib/crypto";
 
-// POST: Se usa para recuperar datos sensibles (Password, Tarjeta, CVV, Notas Seguras)
+// POST: Se usa para recuperar datos sensibles (Password, Tarjeta, CVV,  Notas Seguras)
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
