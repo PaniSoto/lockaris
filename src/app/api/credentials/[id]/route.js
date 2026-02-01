@@ -5,32 +5,29 @@ import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { decrypt, encrypt } from "@/lib/crypto";
 import jwt from "jsonwebtoken";
 
-// --- HELPER MEJORADO ---
+// --- HELPER DE AUTENTICACIÓN ---
 async function getUserId(req) {
+  // 1. Web: Sesión
   const session = await getServerSession(authOptions);
   if (session?.user?.id) return session.user.id;
 
+  // 2. Móvil: Token Bearer
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.split(" ")[1];
     try {
       const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
       const decoded = jwt.verify(token, secret);
-      
-      // DEBUG: Ver qué trae el token por dentro
-      console.log("CONTENIDO DEL TOKEN:", decoded);
-
-      // Busca el ID con diferentes nombres comunes
+      // Soporte para diferentes formatos de payload en el JWT
       return decoded.userId || decoded.id || decoded.sub;
-    } catch (e) {
-      console.error("Error verificando token:", e.message);
+    } catch {
       return null;
     }
   }
   return null;
 }
 
-// POST: Recuperar (Mantener igual, pero asegurando userId)
+// POST: Recuperar datos (Solo lectura segura)
 export async function POST(request, { params }) {
   try {
     const userId = await getUserId(request);
@@ -38,23 +35,50 @@ export async function POST(request, { params }) {
 
     const { id } = await params;
 
+    // SEGURIDAD: Solo busca si coincide el ID y el Usuario
     const credential = await prisma.credential.findFirst({
-      where: { id: id, userId: userId },
+      where: { id, userId },
     });
 
-    if (!credential) return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    if (!credential) {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
 
-    // ... (Tu lógica de desencriptado de POST aquí se mantiene igual) ...
-    // Para abreviar aquí, asumo que mantienes tu lógica de POST original
-    // Si la necesitas completa dímelo, pero el error actual es en PUT
-     if (credential.type === "CARD") {
-        // ... tu logica de tarjeta
-        return NextResponse.json({ message: "Datos tarjeta" }); // Placeholder para no borrar tu codigo
-     } 
-     // ... resto de lógica POST ...
-     return NextResponse.json({ message: "OK" });
+    // Lógica de desencriptado para devolver al cliente
+    if (credential.type === "CARD") {
+      let cardNumber = "";
+      let cvv = "";
+      try {
+        cardNumber = decrypt(credential.encryptedCardNumber, credential.iv);
+      } catch (e) { cardNumber = "Error"; }
+      
+      try {
+        cvv = credential.encryptedCvv ? decrypt(credential.encryptedCvv, credential.iv) : "";
+      } catch (e) { cvv = "Error"; }
+
+      return NextResponse.json({
+        cardNumber,
+        cvv,
+        cardholderName: credential.cardholderName,
+        expiryDate: credential.expiryDate,
+      });
+    }
+
+    if (credential.type === "NOTE") {
+      try {
+        const notes = decrypt(credential.notes, credential.iv);
+        return NextResponse.json({ notes });
+      } catch (e) { return NextResponse.json({ error: "Error" }, { status: 500 }); }
+    }
+
+    // Default: LOGIN
+    try {
+      const password = decrypt(credential.encryptedPassword, credential.iv);
+      return NextResponse.json({ password });
+    } catch (e) { return NextResponse.json({ error: "Error" }, { status: 500 }); }
 
   } catch (error) {
+    console.error("POST Error:", error.message); // Log genérico, seguro
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
@@ -66,6 +90,8 @@ export async function DELETE(req, { params }) {
     if (!userId) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
+    
+    // SEGURIDAD: deleteMany asegura que solo se borre si coincide el userId
     const deleted = await prisma.credential.deleteMany({
       where: { id: id, userId: userId },
     });
@@ -74,49 +100,31 @@ export async function DELETE(req, { params }) {
 
     return NextResponse.json({ message: "Eliminado con éxito" });
   } catch (error) {
+    console.error("DELETE Error:", error.message);
     return NextResponse.json({ message: "Error interno" }, { status: 500 });
   }
 }
 
-// --- PUT: AQUÍ ESTÁ EL DEBUGGING ---
+// PUT: Actualizar
 export async function PUT(req, { params }) {
   try {
     const userId = await getUserId(req);
-    
-    // DEBUG 1: ¿Quién está intentando editar?
-    console.log("--- DEBUG PUT ---");
-    console.log("Usuario detectado (Token/Session):", userId);
-
-    if (!userId) {
-      console.log("Fallo: No hay usuario");
-      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
-    }
+    if (!userId) return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
-    console.log("Intentando editar Credencial ID:", id);
-
     const body = await req.json();
     const { type, serviceName, notes, url } = body;
 
-    // DEBUG 2: Verificamos si existe ANTES de filtrar por usuario para saber qué pasa
-    const existeSinUser = await prisma.credential.findUnique({ where: { id } });
-    if (existeSinUser) {
-        console.log("La credencial existe en DB. Su dueño es:", existeSinUser.userId);
-        console.log("¿Coinciden?", existeSinUser.userId === userId ? "SÍ" : "NO");
-    } else {
-        console.log("La credencial NO existe en DB con ese ID.");
-    }
-
-    // Consulta Real
+    // 1. Verificación de propiedad (Critical Security Step)
     const credential = await prisma.credential.findFirst({
       where: { id: id, userId: userId },
     });
 
     if (!credential) {
-      console.log("Resultado: 404 No encontrado (Mismatch de usuario o ID)");
       return NextResponse.json({ message: "No encontrado" }, { status: 404 });
     }
 
+    // 2. Preparar datos (Encriptación fresca)
     let dataToUpdate = {
       serviceName,
       url: url || null,
@@ -130,17 +138,20 @@ export async function PUT(req, { params }) {
 
       if (cardNumber && !cardNumber.includes("*")) {
         const cardEnc = encrypt(cardNumber);
-        const newIv = cardEnc.iv;
+        const newIv = cardEnc.iv; // Importante: Nuevo IV
         const cvvEnc = encrypt(cvv || "", newIv);
+        
         dataToUpdate.encryptedCardNumber = cardEnc.encryptedData;
         dataToUpdate.encryptedCvv = cvvEnc.encryptedData;
         dataToUpdate.iv = newIv;
       }
     } else if (type === "NOTE") {
+      // Siempre re-encriptamos notas al editar para renovar el IV
       const { iv, encryptedData } = encrypt(notes || "");
       dataToUpdate.notes = encryptedData;
       dataToUpdate.iv = iv;
     } else {
+      // Logins
       dataToUpdate.username = body.username;
       dataToUpdate.notes = notes || null;
 
@@ -151,15 +162,15 @@ export async function PUT(req, { params }) {
       }
     }
 
+    // 3. Ejecutar actualización
     const updated = await prisma.credential.update({
       where: { id: id },
       data: dataToUpdate,
     });
 
-    console.log("✅ Actualización exitosa");
     return NextResponse.json(updated);
   } catch (error) {
-    console.error("PUT_ERROR:", error);
+    console.error("PUT Error:", error.message);
     return NextResponse.json({ message: "Error al actualizar" }, { status: 500 });
   }
 }
