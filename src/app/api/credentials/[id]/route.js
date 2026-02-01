@@ -3,23 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { decrypt, encrypt } from "@/lib/crypto";
-import jwt from "jsonwebtoken";
 
-async function getUserId(req) {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.id) return session.user.id;
-
-  const authHeader = req.headers.get("authorization");
-  if (authHeader?.startsWith("Bearer ")) {
-    const token = authHeader.split(" ")[1];
-    try {
-      const secret = process.env.JWT_SECRET || process.env.NEXTAUTH_SECRET;
-      const decoded = jwt.verify(token, secret);
-      return decoded.userId;
-    } catch { return null; }
-  }
-  return null;
-}
 // POST: Se usa para recuperar datos sensibles (Password, Tarjeta, CVV,  Notas Seguras)
 export async function POST(request, { params }) {
   try {
@@ -126,18 +110,16 @@ export async function DELETE(req, { params }) {
 // PUT: Actualizar las credenciales
 export async function PUT(req, { params }) {
   try {
-    // CAMBIO: Ahora identifica tanto Web como App
-    const userId = await getUserId(req); 
-    if (!userId)
+    const session = await getServerSession(authOptions);
+    if (!session)
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
 
     const { id } = await params;
     const body = await req.json();
     const { type, serviceName, notes, url } = body;
 
-    // CAMBIO: Busca la credencial por id Y por userId
     const credential = await prisma.credential.findFirst({
-      where: { id: id, userId: userId },
+      where: { id: id, userId: session.user.id },
     });
 
     if (!credential)
@@ -152,25 +134,33 @@ export async function PUT(req, { params }) {
       const { cardholderName, cardNumber, expiryDate, cvv } = body;
       dataToUpdate.cardholderName = cardholderName;
       dataToUpdate.expiryDate = expiryDate;
-      dataToUpdate.notes = notes || null;
+      dataToUpdate.notes = notes || null; // Notas planas en tarjetas
 
       if (cardNumber && !cardNumber.includes("*")) {
         const cardEnc = encrypt(cardNumber);
         const newIv = cardEnc.iv;
         const cvvEnc = encrypt(cvv || "", newIv);
+
         dataToUpdate.encryptedCardNumber = cardEnc.encryptedData;
         dataToUpdate.encryptedCvv = cvvEnc.encryptedData;
         dataToUpdate.iv = newIv;
       }
     } else if (type === "NOTE") {
+      // Lógica para notas seguras
+      // Siempre se re-encripta al guardar para asegurar que use un IV nuevo
       const { iv, encryptedData } = encrypt(notes || "");
       dataToUpdate.notes = encryptedData;
       dataToUpdate.iv = iv;
     } else {
+      // Lógica del login
       dataToUpdate.username = body.username;
-      dataToUpdate.notes = notes || null;
+      dataToUpdate.notes = notes || null; // Notas planas en logins
 
-      if (body.password && body.password.trim() !== "" && !body.password.includes("●")) {
+      if (
+        body.password &&
+        body.password.trim() !== "" &&
+        !body.password.includes("●")
+      ) {
         const { iv, encryptedData } = encrypt(body.password);
         dataToUpdate.encryptedPassword = encryptedData;
         dataToUpdate.iv = iv;
@@ -185,6 +175,9 @@ export async function PUT(req, { params }) {
     return NextResponse.json(updated);
   } catch (error) {
     console.error("PUT_ERROR:", error);
-    return NextResponse.json({ message: "Error al actualizar" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error al actualizar" },
+      { status: 500 },
+    );
   }
 }
