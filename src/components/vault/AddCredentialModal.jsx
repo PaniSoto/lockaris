@@ -161,6 +161,10 @@ export default function AddCredentialModal({
   // Envia los datos al servidor (POST para crear, PUT para actualizar)
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Evitamos ejecuciones duplicadas si ya está cargando
+    if (isLoadingPass) return;
+
     const isEditing = !!initialData;
     const method = isEditing ? "PUT" : "POST";
     const endpoint = isEditing
@@ -168,14 +172,27 @@ export default function AddCredentialModal({
       : "/api/credentials";
 
     try {
+      // 2. Activamos el estado de carga (esto desactiva el botón por el prop 'disabled')
+      setIsLoadingPass(true);
+
       const response = await fetch(endpoint, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...formData, type }),
       });
-      if (response.ok) onClose(true);
+
+      if (response.ok) {
+        onClose(true);
+      } else {
+        // Si el servidor responde con error (ej. 400, 500), liberamos el botón
+        setIsLoadingPass(false);
+        const errorData = await response.json();
+        alert(errorData.message || "Error al procesar la solicitud");
+      }
     } catch (error) {
       console.error("Error al guardar:", error);
+      // 3. Importante: si hay un error de red, liberamos el botón para que el usuario reintente
+      setIsLoadingPass(false);
     }
   };
 
@@ -515,9 +532,13 @@ export default function AddCredentialModal({
                 type="submit"
                 disabled={isLoadingPass}
                 className={`flex-1 text-white py-2.5 rounded-lg font-bold shadow-lg disabled:bg-gray-400 
-                  ${type === "CARD" ? "bg-emerald-600" : type === "NOTE" ? "bg-amber-600" : "bg-blue-600"}`}
+    ${type === "CARD" ? "bg-emerald-600" : type === "NOTE" ? "bg-amber-600" : "bg-blue-600"}`}
               >
-                {initialData ? "Actualizar" : "Guardar"}
+                {isLoadingPass
+                  ? "Procesando..." // O un componente <ActivityIndicator /> si estás en Native
+                  : initialData
+                    ? "Actualizar"
+                    : "Guardar"}
               </button>
             </div>
           </form>
