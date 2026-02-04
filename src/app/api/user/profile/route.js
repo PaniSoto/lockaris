@@ -30,28 +30,35 @@ export async function GET(req) {
 
 export async function PUT(req) {
   try {
-    // getToken es la clave: busca automáticamente el token en el header Authorization
-    // y lo desencripta usando tu NEXTAUTH_SECRET.
-    const token = await getToken({ 
-      req, 
-      secret: process.env.NEXTAUTH_SECRET 
-    });
+    let tokenData = null;
 
-    if (!token) {
-      console.log("Token no detectado en el servidor");
-      return NextResponse.json({ error: "Token inválido o no proporcionado" }, { status: 401 });
+    // 1. Intentamos obtener el token de forma estándar (Cookies)
+    tokenData = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+
+    // 2. Si falla (Móvil), lo extraemos manualmente del Header y lo decodificamos
+    if (!tokenData) {
+      const authHeader = req.headers.get("authorization");
+      if (authHeader?.startsWith("Bearer ")) {
+        const rawToken = authHeader.split(" ")[1];
+        try {
+          // 'decode' es la función interna que usa NextAuth para leer sus JWE
+          tokenData = await decode({
+            token: rawToken,
+            secret: process.env.NEXTAUTH_SECRET,
+          });
+        } catch (err) {
+          console.error("Error al decodificar token manual:", err.message);
+        }
+      }
     }
 
-    const userId = token.id || token.sub;
+    if (!tokenData) {
+      return NextResponse.json({ error: "No autorizado: Sesión no válida" }, { status: 401 });
+    }
 
+    const userId = tokenData.id || tokenData.sub;
     const { name, email } = await req.json();
 
-    // 1. Validar que los datos no vengan vacíos
-    if (!name || !email) {
-      return NextResponse.json({ error: "Nombre y email son requeridos" }, { status: 400 });
-    }
-
-    // 2. Actualizar el usuario en Prisma
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { 
@@ -64,13 +71,7 @@ export async function PUT(req) {
     return NextResponse.json(updatedUser);
 
   } catch (error) {
-    console.error("DEBUG ERROR PRISMA:", error);
-    
-    // Si el error es por email duplicado (Prisma P2002)
-    if (error.code === 'P2002') {
-      return NextResponse.json({ error: "El email ya está en uso" }, { status: 400 });
-    }
-
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    console.error("ERROR EN PUT PROFILE:", error);
+    return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
