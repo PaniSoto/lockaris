@@ -26,42 +26,48 @@ export async function GET() {
 
 export async function PUT(req) {
   try {
-    // 1. Intentar obtener sesión (Funciona para Web)
-    let session = await getServerSession(authOptions);
-    let userId = session?.user?.id;
+    const authHeader = req.headers.get('authorization');
+    const token = authHeader?.split(' ')[1];
+    
+    let userId;
 
-    // 2. Si no hay sesión (Móvil), intentamos leer el Token del header
-    if (!userId) {
-      const authHeader = req.headers.get('authorization');
-      const token = authHeader?.split(' ')[1];
-
-      if (token) {
-        // Verificamos el token manualmente con el secreto que tienes en .env
+    // Intentar por Sesión (Web)
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } 
+    // Intentar por Token (Móvil)
+    else if (token) {
+      try {
         const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET);
-        userId = decoded.id || decoded.sub; // NextAuth a veces usa 'sub' como ID
+        // NextAuth guarda el ID en 'id' o en 'sub'
+        userId = decoded.id || decoded.sub;
+      } catch (err) {
+        return NextResponse.json({ error: "Token inválido" }, { status: 401 });
       }
     }
 
-    // 3. Si después de ambos intentos no hay ID, bloqueamos
     if (!userId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const { name, email } = await req.json();
 
-    // 4. Actualización en Prisma
+    // Actualización en Prisma
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { 
         name: name?.trim(), 
         email: email?.toLowerCase().trim() 
       },
+      select: { id: true, name: true, email: true }
     });
 
     return NextResponse.json(updatedUser);
 
   } catch (error) {
-    console.error("Error en PUT /api/user/profile:", error);
-    return NextResponse.json({ error: "Error al guardar los cambios" }, { status: 500 });
+    // Esto te ayudará a ver el error REAL en la consola de tu terminal de VS Code
+    console.error("DEBUG ERROR PRISMA:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
