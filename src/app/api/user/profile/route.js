@@ -57,7 +57,7 @@ export async function PUT(req) {
           // -----------------------------
 
           const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET);
-          userId = decoded.id || decoded.sub || decoded.user?.id;
+          userId = decoded.userId || decoded.id || decoded.sub;
           
           console.log("✅ Token verificado. ID extraído:", userId);
         } catch (err) {
