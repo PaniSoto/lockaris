@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt"; // Herramienta oficial de NextAuth
 import { authOptions } from "../../auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
+import jwt from "jsonwebtoken";
 
 export async function GET(req) {
   try {
