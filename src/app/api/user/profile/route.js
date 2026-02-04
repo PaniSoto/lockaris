@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getToken } from "next-auth/jwt"; // Herramienta oficial de NextAuth
+import { authOptions } from "../../auth/[...nextauth]/route";
+import { getServerSession } from "next-auth";
 
 export async function GET(req) {
   try {
@@ -30,40 +32,41 @@ export async function GET(req) {
 
 export async function PUT(req) {
   try {
-    let tokenData = null;
+    let userId = null;
 
-    // 1. Intentamos obtener el token de forma estándar (Cookies)
-    tokenData = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
+    // 1. Intentar por Sesión (Web)
+    const session = await getServerSession(authOptions);
+    if (session?.user?.id) {
+      userId = session.user.id;
+    } 
 
-    // 2. Si falla (Móvil), lo extraemos manualmente del Header y lo decodificamos
-    if (!tokenData) {
-      const authHeader = req.headers.get("authorization");
-      if (authHeader?.startsWith("Bearer ")) {
-        const rawToken = authHeader.split(" ")[1];
+    // 2. Intentar por Header (Móvil) - EL PLAN B ROBUSTO
+    if (!userId) {
+      const authHeader = req.headers.get('authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
         try {
-          // 'decode' es la función interna que usa NextAuth para leer sus JWE
-          tokenData = await decode({
-            token: rawToken,
-            secret: process.env.NEXTAUTH_SECRET,
-          });
+          // Usamos jwt.verify directamente con tu secreto
+          const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET);
+          // Buscamos el ID en cualquier campo posible (id, sub, o user.id)
+          userId = decoded.id || decoded.sub || decoded.user?.id;
         } catch (err) {
-          console.error("Error al decodificar token manual:", err.message);
+          console.error("Error validando JWT manual:", err.message);
         }
       }
     }
 
-    if (!tokenData) {
-      return NextResponse.json({ error: "No autorizado: Sesión no válida" }, { status: 401 });
+    if (!userId) {
+      return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
     }
 
-    const userId = tokenData.id || tokenData.sub;
     const { name, email } = await req.json();
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: { 
-        name: name.trim(), 
-        email: email.toLowerCase().trim() 
+        name: name?.trim(), 
+        email: email?.toLowerCase().trim() 
       },
       select: { id: true, name: true, email: true }
     });
@@ -71,7 +74,7 @@ export async function PUT(req) {
     return NextResponse.json(updatedUser);
 
   } catch (error) {
-    console.error("ERROR EN PUT PROFILE:", error);
+    console.error("ERROR CRÍTICO EN PUT:", error);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }
