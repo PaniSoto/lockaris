@@ -38,26 +38,41 @@ export async function PUT(req) {
     const session = await getServerSession(authOptions);
     if (session?.user?.id) {
       userId = session.user.id;
+      console.log("✅ Sesión Web detectada. ID:", userId);
     } 
 
-    // 2. Intentar por Header (Móvil) - EL PLAN B ROBUSTO
+    // 2. Intentar por Header (Móvil)
     if (!userId) {
       const authHeader = req.headers.get('authorization');
+      
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.split(' ')[1];
+        
         try {
-          // Usamos jwt.verify directamente con tu secreto
+          // --- BLOQUE DE DIAGNÓSTICO ---
+          const decodedPayload = jwt.decode(token); 
+          console.log("📦 PAYLOAD DEL TOKEN (sin verificar):", decodedPayload);
+          console.log("🔑 USANDO SECRETO:", process.env.NEXTAUTH_SECRET ? "Definido" : "NO DEFINIDO");
+          // -----------------------------
+
           const decoded = jwt.verify(token, process.env.NEXTAUTH_SECRET);
-          // Buscamos el ID en cualquier campo posible (id, sub, o user.id)
           userId = decoded.id || decoded.sub || decoded.user?.id;
+          
+          console.log("✅ Token verificado. ID extraído:", userId);
         } catch (err) {
-          console.error("Error validando JWT manual:", err.message);
+          console.error("❌ ERROR VALIDANDO JWT MANUAL:", err.message);
+          // Si el error es 'invalid signature', el secreto del .env no coincide con el del token
         }
+      } else {
+        console.warn("⚠️ No se encontró el header Authorization o no es Bearer");
       }
     }
 
     if (!userId) {
-      return NextResponse.json({ error: "Sesión no válida" }, { status: 401 });
+      return NextResponse.json({ 
+        error: "Sesión no válida",
+        message: "El servidor no pudo identificar al usuario." 
+      }, { status: 401 });
     }
 
     const { name, email } = await req.json();
@@ -71,6 +86,7 @@ export async function PUT(req) {
       select: { id: true, name: true, email: true }
     });
 
+    console.log("✨ Usuario actualizado en DB:", updatedUser.id);
     return NextResponse.json(updatedUser);
 
   } catch (error) {
