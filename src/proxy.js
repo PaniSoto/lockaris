@@ -1,7 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-// Exportamos la función withAuth directamente como default
 export default withAuth(
   function middleware(req) {
     return NextResponse.next();
@@ -13,13 +12,9 @@ export default withAuth(
     pages: {
       signIn: "/login",
     },
-  }
+  },
 );
 
-export const config = { 
-  matcher: [
-    "/vault/:path*", 
-    "/tools/:path*", 
-    "/settings/:path*"
-  ] 
+export const config = {
+  matcher: ["/vault/:path*", "/tools/:path*", "/settings/:path*"],
 };

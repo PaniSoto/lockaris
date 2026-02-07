@@ -54,7 +54,6 @@ export default function GeneratorPage() {
       </div>
 
       <div className="max-w-2xl mx-auto">
-        {/* Sección de los resultados*/}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8 mb-6 text-center group relative overflow-hidden">
           <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
 
@@ -82,10 +81,8 @@ export default function GeneratorPage() {
           </div>
         </div>
 
-        {/* Sección de configuración */}
         <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-8">
           <div className="space-y-8">
-            {/* Control de la longitud */}
             <div>
               <div className="flex justify-between items-center mb-6">
                 <label className="text-sm font-bold text-gray-500 uppercase tracking-wider">

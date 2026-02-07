@@ -5,13 +5,13 @@ import PageHeader from "@/components/PageHeader";
 import { User, Mail, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+// Recibe una URL, realiza la petición HTTP y extrae el cuerpo en formato JSON
 const fetcher = (url) => fetch(url).then((res) => res.json());
 
 export default function SettingsPage() {
   const [formData, setFormData] = useState({ name: "", email: "" });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Se obtiene el perfil del usuario usando SWR
   const {
     data: user,
     error,
@@ -28,7 +28,6 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  // Definición de los campos del formulario
   const formFields = [
     { name: "name", label: "Nombre", type: "text", icon: User },
     { name: "email", label: "Email", type: "email", icon: Mail },
@@ -47,7 +46,8 @@ export default function SettingsPage() {
 
       if (!res.ok) throw new Error();
 
-      // Se actualiza la caché global de SWR para reflejar los cambios
+      // MUTATE: Actualiza el caché local de SWR inmediatamente para que el
+      // resto de la App vea el nuevo nombre sin recargar.
       await mutate(formData, { revalidate: true });
       toast.success("Perfil actualizado con éxito");
     } catch (error) {
@@ -57,7 +57,7 @@ export default function SettingsPage() {
     }
   };
 
-  // Lógica de validación de cambios
+  // Solo se habilita si hay cambios reales respecto a lo que hay en la DB
   const hasChanges =
     user && (formData.name !== user.name || formData.email !== user.email);
 

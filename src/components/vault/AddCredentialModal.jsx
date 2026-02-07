@@ -160,41 +160,38 @@ export default function AddCredentialModal({
 
   // Envia los datos al servidor (POST para crear, PUT para actualizar)
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (isLoadingPass) return;
+    e.preventDefault();
+    if (isLoadingPass) return;
 
-  const isEditing = !!initialData;
-  const method = isEditing ? "PUT" : "POST";
-  const endpoint = isEditing
-    ? `/api/credentials/${initialData.id}`
-    : "/api/credentials";
+    const isEditing = !!initialData;
+    const method = isEditing ? "PUT" : "POST";
+    const endpoint = isEditing
+      ? `/api/credentials/${initialData.id}`
+      : "/api/credentials";
 
-  try {
-    setIsLoadingPass(true);
+    try {
+      setIsLoadingPass(true);
 
-    const response = await fetch(endpoint, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...formData, type }),
-    });
+      const response = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, type }),
+      });
 
-    if (response.ok) {
-      // OPCIONAL: Un pequeño delay visual antes de cerrar (mejora el UX)
-      // setTimeout(() => {
+      if (response.ok) {
         setIsLoadingPass(false); // Reseteamos antes de cerrar
         onClose(true);
-      // }, 500);
-    } else {
+      } else {
+        setIsLoadingPass(false);
+        const errorData = await response.json();
+        alert(errorData.message || "Error al guardar");
+      }
+    } catch (error) {
+      console.error("Error al guardar:", error);
       setIsLoadingPass(false);
-      const errorData = await response.json();
-      alert(errorData.message || "Error al guardar");
+      alert("Error de conexión. Inténtalo de nuevo.");
     }
-  } catch (error) {
-    console.error("Error al guardar:", error);
-    setIsLoadingPass(false); // Si hay error de red, liberamos el botón
-    alert("Error de conexión. Inténtalo de nuevo.");
-  }
-};
+  };
 
   return (
     <div

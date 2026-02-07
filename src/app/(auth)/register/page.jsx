@@ -16,7 +16,7 @@ import {
 export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false); // Estado para el ojo
+  const [showPassword, setShowPassword] = useState(false);
   const router = useRouter();
 
   // Configuración dinámica de los campos
@@ -49,6 +49,7 @@ export default function RegisterPage() {
     setLoading(true);
     setError("");
 
+    // Conversión limpia de FormData a objeto JSON
     const formData = Object.fromEntries(new FormData(e.currentTarget));
 
     try {
@@ -103,7 +104,6 @@ export default function RegisterPage() {
                   />
                   <input
                     name={field.name}
-                    // Si el campo es password, alternamos entre text y password según el estado del ojo
                     type={
                       field.type === "password"
                         ? showPassword
@@ -118,7 +118,6 @@ export default function RegisterPage() {
                     }`}
                   />
 
-                  {/* Solo se muestra el botón del ojo si el campo es de tipo password */}
                   {field.type === "password" && (
                     <button
                       type="button"

@@ -8,11 +8,9 @@ import { authOptions } from "../auth/[...nextauth]/route";
 
 // Función auxiliar para obtener el ID del usuario (Web o Móvil)
 async function getUserId(req) {
-  // 1. Intentar por sesión de NextAuth (Web)
   const session = await getServerSession(authOptions);
   if (session?.user?.id) return session.user.id;
 
-  // 2. Intentar por Token JWT en el Header (Móvil)
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.split(" ")[1];
@@ -26,11 +24,15 @@ async function getUserId(req) {
   return null;
 }
 
-// GET: Obtener credenciales
+/**
+ * GET: Recupera y desencripta el almacén completo.
+ * Implementa un mapeo dinámico para tratar cada tipo de dato (LOGIN, CARD, NOTE)
+ * con su lógica de desencriptación específica.
+ */
 export async function GET(req) {
   try {
     const userId = await getUserId(req);
-    
+
     if (!userId) {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
@@ -71,15 +73,22 @@ export async function GET(req) {
     return NextResponse.json(processedItems);
   } catch (error) {
     console.error("Error al obtener datos:", error);
-    return NextResponse.json({ message: "Error al obtener datos" }, { status: 500 });
+    return NextResponse.json(
+      { message: "Error al obtener datos" },
+      { status: 500 },
+    );
   }
 }
 
-// POST: Crear nuevas credenciales
+/**
+ * POST: Cifrado y persistencia.
+ * Genera un IV (Vector de Inicialización) único por cada entrada, asegurando que
+ * dos contraseñas iguales tengan hashes diferentes en la base de datos.
+ */
 export async function POST(req) {
   try {
     const userId = await getUserId(req);
-    
+
     if (!userId) {
       return NextResponse.json({ message: "No autorizado" }, { status: 401 });
     }
@@ -88,7 +97,10 @@ export async function POST(req) {
     const { type, serviceName, notes, url } = body;
 
     if (!serviceName) {
-      return NextResponse.json({ message: "El nombre es obligatorio" }, { status: 400 });
+      return NextResponse.json(
+        { message: "El nombre es obligatorio" },
+        { status: 400 },
+      );
     }
 
     let dataToSave = {
@@ -122,7 +134,10 @@ export async function POST(req) {
     } else {
       const { username, password } = body;
       if (!username || !password) {
-        return NextResponse.json({ message: "Faltan datos de login" }, { status: 400 });
+        return NextResponse.json(
+          { message: "Faltan datos de login" },
+          { status: 400 },
+        );
       }
       const { iv, encryptedData } = encrypt(password);
       dataToSave = {

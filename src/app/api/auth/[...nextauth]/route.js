@@ -19,6 +19,7 @@ export const authOptions = {
 
         if (!user) return null;
 
+        // Compara el hash de la DB con la clave ingresada
         const passwordMatch = await bcrypt.compare(
           credentials.password,
           user.password,
@@ -26,6 +27,7 @@ export const authOptions = {
 
         if (!passwordMatch) return null;
 
+        // Se retorna el objeto usuario (esto se pasa al callback JWT)
         return {
           id: user.id,
           email: user.email,
@@ -35,16 +37,16 @@ export const authOptions = {
     }),
   ],
   callbacks: {
+    // Se ejecuta al crear o actualizar el token
     async jwt({ token, user }) {
-      // Si el usuario existe cuando estas en el login, se mete su id y name en el JWT
       if (user) {
         token.id = user.id;
         token.name = user.name;
       }
       return token;
     },
+    // Hace que los datos del JWT sean accesibles vía useSession()
     async session({ session, token }) {
-      // Se pasan los datos del JWT a la sesión de NextAuth
       if (session.user) {
         session.user.id = token.id;
         session.user.name = token.name;
@@ -54,7 +56,7 @@ export const authOptions = {
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 60,
+    maxAge: 60 * 60, // Sesión de 1 hora
   },
   pages: {
     signIn: "/login",

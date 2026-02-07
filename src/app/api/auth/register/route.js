@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
-// Se manejan las solicitudes de registro
 export async function POST(request) {
   try {
     const { name, email, password } = await request.json();
@@ -22,6 +21,7 @@ export async function POST(request) {
       );
     }
 
+    // Verificación de disponibilidad
     const userExists = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });

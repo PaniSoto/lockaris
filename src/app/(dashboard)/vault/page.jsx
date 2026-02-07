@@ -21,12 +21,14 @@ export default function VaultPage() {
   const [activeMenu, setActiveMenu] = useState(null);
   const [modalType, setModalType] = useState("LOGIN");
 
+  // Gestión de los datos
   const {
     data: credentials = [],
     mutate,
     isLoading,
   } = useSWR("/api/credentials", fetcher);
 
+  // Cierre global de menús al hacer click fuera
   useEffect(() => {
     const closeAll = () => {
       setIsMenuOpen(false);
@@ -36,6 +38,7 @@ export default function VaultPage() {
     return () => window.removeEventListener("click", closeAll);
   }, []);
 
+  // Lógica de filtrado
   const filteredItems = useMemo(() => {
     const q = searchTerm.toLowerCase().trim();
     if (q.length < 2) return credentials;
@@ -46,14 +49,13 @@ export default function VaultPage() {
     );
   }, [searchTerm, credentials]);
 
-  // Función cuando clicas en la fila
+  // Manejadores de acción
   const handleViewItem = (item) => {
     setSelectedItem(item);
     setIsViewOpen(true);
     setActiveMenu(null);
   };
 
-  // Función para abrir el modal de edición
   const openEdit = (item) => {
     setSelectedItem(item);
     setModalType(item.type || "LOGIN");
@@ -103,7 +105,7 @@ export default function VaultPage() {
                 <KeySquare size={18} className="text-blue-500" />
                 Inicio de sesión
               </button>
-              {/* De ás botones del menú */}
+
               <button
                 onClick={() => {
                   setSelectedItem(null);

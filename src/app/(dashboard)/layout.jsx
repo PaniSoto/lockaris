@@ -20,7 +20,9 @@ export default function DashboardLayout({ children }) {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
-  // Al usar la misma URL que en la página de ajustes, se mantienen sincronizados
+  // Al usar la misma llave ("/api/user/profile") que en la página de ajustes,
+  // SWR comparte la memoria. Si el usuario cambia su nombre en ajustes, 
+  // se actualizará aquí automáticamente sin hacer un nuevo fetch.
   const { data: userProfile } = useSWR("/api/user/profile", fetcher);
 
   useEffect(() => {

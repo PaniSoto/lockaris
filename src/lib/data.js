@@ -1,7 +1,6 @@
-// lib/data.js o services/user.js
 import { prisma } from "./prisma";
 
-// Buscar un usuario por email (útil para el Login de mañana)
+// Buscar un usuario por email
 export async function getUserByEmail(email) {
   return await prisma.user.findUnique({
     where: { email },
